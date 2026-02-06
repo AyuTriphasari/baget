@@ -92,82 +92,125 @@ export default function DashboardPage() {
 
     if (!isConnected) {
         return (
-            <div className="w-full max-w-md mx-auto pt-20 px-4 text-center">
-                <p className="text-gray-400">Please connect your wallet to view your dashboard.</p>
+            <div className="w-full pt-20 text-center space-y-4 animate-fade-up">
+                <div className="w-16 h-16 mx-auto bg-white/5 rounded-2xl flex items-center justify-center">
+                    <span className="text-3xl">🔒</span>
+                </div>
+                <p className="text-gray-500 text-sm">Connect your wallet to view your dashboard</p>
             </div>
-        )
+        );
     }
 
+    // Stats
+    const totalDistributed = giveaways.reduce((sum, g) => {
+        return sum + Number(formatEther(BigInt(g.rewardPerClaim))) * Number(g.claimedCount);
+    }, 0);
+    const totalActive = giveaways.filter(g => {
+        const now = Date.now() / 1000;
+        return g.isActive && !(Number(g.expiresAt) > 0 && now > Number(g.expiresAt));
+    }).length;
+
     return (
-        <div className="w-full max-w-md mx-auto space-y-8 pt-8 px-4 animate-fade-up">
-            <div className="text-center space-y-2">
-                <h1 className="text-3xl font-extrabold tracking-tight text-white drop-shadow-sm">
-                    Creator <span className="text-blue-500">Dashboard</span>
+        <div className="w-full space-y-5 pt-4 animate-fade-up">
+            <div className="text-center space-y-1">
+                <h1 className="text-2xl font-extrabold text-white tracking-tight">
+                    My <span className="text-gradient-blue">Dashboard</span>
                 </h1>
-                <p className="text-gray-400 font-medium text-sm">Manage your giveaways and funds.</p>
+                <p className="text-gray-500 text-sm">Manage your giveaways and funds</p>
             </div>
 
-            <div className="space-y-4">
+            {/* Summary Stats */}
+            {!isLoading && giveaways.length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                    <div className="glass-card p-3 text-center">
+                        <p className="text-xl font-bold text-white">{giveaways.length}</p>
+                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Total</p>
+                    </div>
+                    <div className="glass-card p-3 text-center">
+                        <p className="text-xl font-bold text-green-400">{totalActive}</p>
+                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Active</p>
+                    </div>
+                    <div className="glass-card p-3 text-center">
+                        <p className="text-xl font-bold text-blue-400">{totalDistributed.toFixed(4)}</p>
+                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">ETH Sent</p>
+                    </div>
+                </div>
+            )}
+
+            <div className="space-y-3">
                 {error && (
-                    <div className="glass-card p-4 bg-red-500/10 border border-red-500/20 text-center">
+                    <div className="glass-card p-4 bg-red-500/10 border-red-500/20 text-center space-y-2">
                         <p className="text-red-300 text-sm">{error}</p>
-                        <button onClick={() => window.location.reload()} className="mt-3 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg text-xs text-red-200 transition-colors">Retry</button>
+                        <button onClick={() => window.location.reload()} className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg text-xs text-red-200 transition-colors">Retry</button>
                     </div>
                 )}
+
                 {isLoading ? (
-                    <div className="space-y-3">
-                        {[1, 2, 3].map(i => (
-                            <div key={i} className="glass-card p-4 h-32 animate-pulse bg-white/5"></div>
-                        ))}
-                    </div>
+                    [1, 2, 3].map(i => (
+                        <div key={i} className="skeleton h-36 w-full"></div>
+                    ))
                 ) : giveaways.length === 0 ? (
-                    <div className="text-center p-8 text-gray-500 glass-card">You haven't created any giveaways yet.</div>
+                    <div className="glass-card p-10 text-center space-y-4">
+                        <div className="text-4xl">📭</div>
+                        <p className="text-gray-500 text-sm">You haven't created any giveaways yet</p>
+                        <button onClick={() => router.push("/")} className="btn-primary px-6 py-2.5 text-sm">
+                            Create First Giveaway
+                        </button>
+                    </div>
                 ) : (
                     giveaways.map((g) => {
                         const now = Date.now() / 1000;
                         const isExpired = Number(g.expiresAt) > 0 && now > Number(g.expiresAt);
                         const isFullyClaimed = Number(g.claimedCount) >= Number(g.maxClaims);
                         const remaining = Number(g.maxClaims) - Number(g.claimedCount);
-                        const isActive = g.isActive; // From API (checked from contract)
-                        const canWithdraw = isExpired && remaining > 0 && isActive;
-                        const canCancel = isActive && !isExpired && !isFullyClaimed;
+                        const isActiveG = g.isActive;
+                        const canWithdraw = isExpired && remaining > 0 && isActiveG;
+                        const canCancel = isActiveG && !isExpired && !isFullyClaimed;
+                        const claimPct = Number(g.maxClaims) > 0 ? (Number(g.claimedCount) / Number(g.maxClaims)) * 100 : 0;
 
-                        // Status Label
                         let statusLabel = "Active";
-                        let statusColor = "text-green-400";
-                        if (!isActive) {
+                        let badgeClass = "badge-active";
+                        if (!isActiveG) {
                             statusLabel = "Ended";
-                            statusColor = "text-gray-400";
+                            badgeClass = "badge-ended";
                         } else if (isFullyClaimed) {
                             statusLabel = "Fully Claimed";
-                            statusColor = "text-blue-400";
+                            badgeClass = "badge-info";
                         } else if (isExpired) {
                             statusLabel = "Expired";
-                            statusColor = "text-red-400";
+                            badgeClass = "badge-ended";
                         }
 
                         return (
                             <div key={g.id} className="glass-card p-5 space-y-4">
                                 <div className="flex justify-between items-start">
-                                    <div>
-                                        <span className={`text-xs font-bold uppercase tracking-wider ${statusColor} bg-white/5 px-2 py-1 rounded`}>
+                                    <div className="space-y-2">
+                                        <span className={`px-2.5 py-1 text-[10px] rounded-lg font-bold uppercase tracking-wider ${badgeClass}`}>
                                             {statusLabel}
                                         </span>
-                                        <h3 className="text-white font-bold text-lg mt-2">{formatEther(BigInt(g.rewardPerClaim))} ETH / person</h3>
+                                        <h3 className="text-white font-bold text-lg">{formatEther(BigInt(g.rewardPerClaim))} ETH <span className="text-gray-600 text-sm font-normal">/ person</span></h3>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-xs text-gray-500 font-mono">ID: {g.id.slice(0, 8)}...</p>
-                                        <p className="text-sm text-gray-300 font-bold mt-1">
-                                            {g.claimedCount.toString()} / {g.maxClaims.toString()}
+                                    <div className="text-right space-y-1">
+                                        <p className="text-[10px] text-gray-600 font-mono">#{g.id.slice(0, 8)}</p>
+                                        <p className="text-sm text-white font-bold font-mono">
+                                            {g.claimedCount}/{g.maxClaims}
                                         </p>
                                     </div>
                                 </div>
 
+                                {/* Progress */}
+                                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full rounded-full transition-all duration-500 ${!isActiveG ? "bg-gray-600" : isFullyClaimed ? "bg-blue-500" : "bg-green-500"}`}
+                                        style={{ width: `${Math.min(claimPct, 100)}%` }}
+                                    />
+                                </div>
+
                                 {/* Actions */}
-                                <div className="flex gap-2 pt-2 border-t border-white/5">
+                                <div className="flex gap-2 pt-1">
                                     <button
                                         onClick={() => router.push(`/baget/${g.id}`)}
-                                        className="flex-1 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm text-gray-300 transition-colors"
+                                        className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-medium text-gray-400 hover:text-white transition-all"
                                     >
                                         View
                                     </button>
@@ -176,7 +219,7 @@ export default function DashboardPage() {
                                         <button
                                             onClick={() => handleWithdraw(g.id, false)}
                                             disabled={isTxPending || isConfirming}
-                                            className="flex-1 py-2 bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 rounded-lg text-sm font-bold transition-colors disabled:opacity-50"
+                                            className="flex-1 py-2.5 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
                                         >
                                             {isTxPending || isConfirming ? "Processing..." : "Cancel & Refund"}
                                         </button>
@@ -186,17 +229,17 @@ export default function DashboardPage() {
                                         <button
                                             onClick={() => handleWithdraw(g.id, true)}
                                             disabled={isTxPending || isConfirming}
-                                            className="flex-1 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg text-sm font-bold transition-colors disabled:opacity-50"
+                                            className="flex-1 py-2.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
                                         >
-                                            {isTxPending || isConfirming ? "Processing..." : "Withdraw Funds"}
+                                            {isTxPending || isConfirming ? "Processing..." : "Withdraw"}
                                         </button>
                                     )}
                                 </div>
                             </div>
-                        )
+                        );
                     })
                 )}
             </div>
-        </div >
+        </div>
     );
 }

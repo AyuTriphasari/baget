@@ -75,6 +75,7 @@ export const metadata: Metadata = {
 
 import FrameInit from "./components/FrameInit";
 import BottomNav from "./components/BottomNav";
+import TopNav from "./components/TopNav";
 
 export default function RootLayout({
   children,
@@ -86,13 +87,14 @@ export default function RootLayout({
       <head>
         <link rel="manifest" href="/manifest.json" />
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-        <meta name="theme-color" content="#3B82F6" />
+        <meta name="theme-color" content="#0B0C10" />
       </head>
       <body>
         <Providers>
           <FrameInit />
+          <TopNav />
           <BottomNav />
-          <main className="min-h-screen w-full flex flex-col items-center p-4 sm:p-8 pb-24 max-w-lg mx-auto">
+          <main className="min-h-screen w-full flex flex-col items-center px-4 pb-28 pt-2 max-w-lg mx-auto">
             {children}
           </main>
         </Providers>

@@ -42,81 +42,138 @@ export default function FindPage() {
         return () => document.removeEventListener("visibilitychange", handleVisibility);
     }, [fetchGiveaways]);
 
+    const activeGiveaways = giveaways.filter((g) => {
+        const now = Date.now() / 1000;
+        const isExpired = Number(g.expiresAt) > 0 && now > Number(g.expiresAt);
+        const isFullyClaimed = Number(g.claimedCount) >= Number(g.maxClaims);
+        return g.isActive && !isExpired && !isFullyClaimed;
+    });
+    const endedGiveaways = giveaways.filter((g) => !activeGiveaways.includes(g));
+
+    const [tab, setTab] = useState<"active" | "ended">("active");
+    const displayList = tab === "active" ? activeGiveaways : endedGiveaways;
+
     return (
-        <div className="w-full max-w-md mx-auto space-y-8 pt-8 px-4 pb-24">
-            <div className="text-center space-y-2 animate-fade-up">
-                <h1 className="text-3xl font-extrabold tracking-tight text-white drop-shadow-sm">
-                    Find <span className="text-blue-500">Giveaways</span>
+        <div className="w-full space-y-5 pt-4 animate-fade-up">
+            {/* Header */}
+            <div className="text-center space-y-1">
+                <h1 className="text-2xl font-extrabold text-white tracking-tight">
+                    Find <span className="text-gradient-blue">Giveaways</span>
                 </h1>
-                <p className="text-gray-400 font-medium text-sm">Discover and claim active rewards.</p>
+                <p className="text-gray-500 text-sm">Discover and claim active rewards</p>
             </div>
 
-            {/* Search Bar (Placeholder for now) */}
-            <div className="animate-fade-up" style={{ animationDelay: '0.1s' }}>
-                <div className="relative group">
-                    <input
-                        type="text"
-                        placeholder="Search by Creator Address or ID..."
-                        className="glass-input w-full p-4 pl-12 text-sm font-mono placeholder:text-gray-600 focus:outline-none rounded-xl"
-                    />
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                        </svg>
+            {/* Stats Row */}
+            {!isLoading && (
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="glass-card p-3 text-center">
+                        <p className="text-2xl font-bold text-white">{activeGiveaways.length}</p>
+                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Active</p>
+                    </div>
+                    <div className="glass-card p-3 text-center">
+                        <p className="text-2xl font-bold text-white">{giveaways.length}</p>
+                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Total</p>
                     </div>
                 </div>
-            </div>
+            )}
 
-            <div className="space-y-4 animate-fade-up" style={{ animationDelay: '0.2s' }}>
-                <div className="flex items-center justify-between px-2">
-                    <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Latest Drops</h2>
-                    <button onClick={() => fetchGiveaways(false)} disabled={isRefreshing} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 disabled:opacity-50">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                        </svg>
-                        {isRefreshing ? "Updating..." : "Refresh"}
+            {/* Tabs + Refresh */}
+            <div className="flex items-center justify-between">
+                <div className="flex gap-1 bg-white/5 p-1 rounded-xl">
+                    <button
+                        onClick={() => setTab("active")}
+                        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${tab === "active" ? "bg-blue-500 text-white shadow-lg shadow-blue-500/20" : "text-gray-500 hover:text-gray-300"}`}
+                    >
+                        Active ({activeGiveaways.length})
+                    </button>
+                    <button
+                        onClick={() => setTab("ended")}
+                        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${tab === "ended" ? "bg-white/10 text-white" : "text-gray-500 hover:text-gray-300"}`}
+                    >
+                        Ended ({endedGiveaways.length})
                     </button>
                 </div>
+                <button onClick={() => fetchGiveaways(false)} disabled={isRefreshing} className="p-2 rounded-lg hover:bg-white/5 text-gray-500 hover:text-white transition-colors disabled:opacity-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                    </svg>
+                </button>
+            </div>
 
+            {/* List */}
+            <div className="space-y-3">
                 {isLoading ? (
-                    <div className="space-y-3">
-                        {[1, 2, 3].map(i => (
-                            <div key={i} className="glass-card p-4 h-24 animate-pulse bg-white/5"></div>
-                        ))}
-                    </div>
-                ) : giveaways.length === 0 ? (
-                    <div className="glass-card p-8 text-center text-gray-500">
-                        No active giveaways found.
+                    [1, 2, 3].map(i => (
+                        <div key={i} className="skeleton h-28 w-full"></div>
+                    ))
+                ) : displayList.length === 0 ? (
+                    <div className="glass-card p-10 text-center space-y-3">
+                        <div className="text-4xl">{tab === "active" ? "🔍" : "📭"}</div>
+                        <p className="text-gray-500 text-sm">
+                            {tab === "active" ? "No active giveaways right now" : "No ended giveaways yet"}
+                        </p>
                     </div>
                 ) : (
-                    giveaways.map((g) => {
+                    displayList.map((g) => {
                         const now = Date.now() / 1000;
                         const isExpired = Number(g.expiresAt) > 0 && now > Number(g.expiresAt);
                         const isFullyClaimed = Number(g.claimedCount) >= Number(g.maxClaims);
                         const isEnded = !g.isActive || isExpired || isFullyClaimed;
+                        const claimPct = Number(g.maxClaims) > 0 ? (Number(g.claimedCount) / Number(g.maxClaims)) * 100 : 0;
+
+                        // Time remaining
+                        let timeLeft = "";
+                        if (!isEnded && Number(g.expiresAt) > 0) {
+                            const secs = Number(g.expiresAt) - now;
+                            if (secs > 3600) timeLeft = `${Math.floor(secs / 3600)}h left`;
+                            else if (secs > 60) timeLeft = `${Math.floor(secs / 60)}m left`;
+                            else timeLeft = `${Math.floor(secs)}s left`;
+                        }
 
                         return (
                             <div
                                 key={g.id}
                                 onClick={() => router.push(`/baget/${g.id}`)}
-                                className="glass-card p-4 hover:bg-white/10 transition-colors cursor-pointer group flex justify-between items-center"
+                                className="glass-card p-4 hover:border-blue-500/20 transition-all cursor-pointer group space-y-3"
                             >
-                                <div>
-                                    <p className="text-white font-bold text-lg">{formatEther(BigInt(g.rewardPerClaim || 0))} ETH</p>
-                                    <p className="text-gray-500 text-xs font-mono">
-                                        by {g.creator?.slice(0, 6)}...{g.creator?.slice(-4)}
-                                    </p>
+                                <div className="flex justify-between items-start">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xl font-bold text-white">{formatEther(BigInt(g.rewardPerClaim || 0))}</span>
+                                            <span className="text-xs font-bold text-gray-500">ETH</span>
+                                            <span className="text-gray-600 text-xs">/ person</span>
+                                        </div>
+                                        <p className="text-gray-600 text-xs font-mono">
+                                            by {g.creator?.slice(0, 6)}…{g.creator?.slice(-4)}
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-1">
+                                        <span className={`px-2.5 py-1 text-[10px] rounded-lg font-bold uppercase tracking-wider ${isEnded ? "badge-ended" : "badge-active"}`}>
+                                            {isFullyClaimed ? "Full" : isExpired ? "Expired" : isEnded ? "Ended" : "Live"}
+                                        </span>
+                                        {timeLeft && (
+                                            <span className="text-[10px] text-gray-600 font-mono">{timeLeft}</span>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="text-right">
-                                    <span className={`px-2 py-1 text-xs rounded font-bold uppercase ${isEnded ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
-                                        {isEnded ? "Ended" : "Available"}
-                                    </span>
-                                    <p className="text-xs text-gray-500 mt-1 font-mono">
-                                        {g.claimedCount}/{g.maxClaims}
-                                    </p>
+
+                                {/* Progress bar */}
+                                <div className="space-y-1.5">
+                                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                        <div
+                                            className={`h-full rounded-full transition-all duration-500 ${isEnded ? "bg-gray-600" : claimPct > 80 ? "bg-orange-500" : "bg-blue-500"}`}
+                                            style={{ width: `${Math.min(claimPct, 100)}%` }}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between text-[10px] text-gray-600">
+                                        <span>{g.claimedCount}/{g.maxClaims} claimed</span>
+                                        <span className="text-gray-500 group-hover:text-blue-400 transition-colors flex items-center gap-1">
+                                            View →
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
-                        )
+                        );
                     })
                 )}
             </div>

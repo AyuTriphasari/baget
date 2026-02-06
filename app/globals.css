@@ -20,36 +20,50 @@ body {
   overflow-x: hidden;
 }
 
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 99px;
+}
+
 /* Glassmorphism Utilities */
 .glass-card {
-  background: rgba(20, 22, 31, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--base-border);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  background: rgba(20, 22, 31, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   border-radius: 20px;
 }
 
 .glass-input {
-  background: rgba(35, 38, 52, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(35, 38, 52, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   color: white;
-  border-radius: 12px;
+  border-radius: 14px;
   transition: all 0.2s ease;
 }
 
 .glass-input:focus {
   border-color: var(--base-blue);
-  background: rgba(35, 38, 52, 0.8);
-  box-shadow: 0 0 0 4px rgba(0, 82, 255, 0.15);
+  background: rgba(35, 38, 52, 0.9);
+  box-shadow: 0 0 0 3px rgba(0, 82, 255, 0.12);
 }
 
 /* Modern Button */
 .btn-primary {
-  background: var(--base-blue);
+  background: linear-gradient(135deg, #0052FF 0%, #3B82F6 100%);
   color: white;
-  border-radius: 12px;
-  font-weight: 600;
+  border-radius: 14px;
+  font-weight: 700;
   letter-spacing: -0.01em;
   transition: all 0.2s ease;
   position: relative;
@@ -57,20 +71,13 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.btn-primary:after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0));
-  opacity: 0;
-  transition: opacity 0.2s;
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(0, 82, 255, 0.3);
 }
 
-.btn-primary:active {
-  transform: scale(0.98);
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.98) translateY(0);
 }
 
 .btn-primary:disabled {
@@ -78,6 +85,7 @@ body {
   color: #555;
   border-color: transparent;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* Text Gradients */
@@ -88,16 +96,35 @@ body {
 }
 
 .text-gradient-blue {
-  background: linear-gradient(135deg, #0052FF 0%, #4C82FB 100%);
+  background: linear-gradient(135deg, #3B82F6 0%, #60A5FA 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+/* Status Badges */
+.badge-active {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.badge-ended {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.badge-info {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 /* Animations */
 @keyframes fadeUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(12px);
   }
 
   to {
@@ -106,6 +133,59 @@ body {
   }
 }
 
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+
+  50% {
+    box-shadow: 0 0 0 8px rgba(59, 130, 246, 0);
+  }
+}
+
 .animate-fade-up {
-  animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease infinite;
+}
+
+/* Skeleton loader */
+.skeleton {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 12px;
+}
+
+/* Subtle background */
+.bg-subtle {
+  background: rgba(255, 255, 255, 0.03);
 }

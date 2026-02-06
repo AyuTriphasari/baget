@@ -172,22 +172,25 @@ export default function ClaimPage({ params }: { params: Promise<{ id: string }> 
 
     if (dataError) {
         return (
-            <div className="w-full max-w-md mx-auto pt-8 px-4 text-center animate-fade-up">
-                <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-xl space-y-4">
+            <div className="w-full pt-8 text-center animate-fade-up">
+                <div className="glass-card p-8 space-y-4">
+                    <div className="w-14 h-14 bg-red-500/10 rounded-2xl flex items-center justify-center mx-auto">
+                        <span className="text-2xl">❌</span>
+                    </div>
                     <h3 className="text-white font-bold">Error Loading Giveaway</h3>
-                    <p className="text-red-300 text-xs mt-2 font-mono">{dataError}</p>
-                    <button onClick={() => window.location.reload()} className="btn-primary w-full py-2 text-sm">Try Again</button>
+                    <p className="text-red-400/80 text-xs font-mono">{dataError}</p>
+                    <button onClick={() => window.location.reload()} className="btn-primary px-6 py-2.5 text-sm">Try Again</button>
                 </div>
             </div>
         );
     }
 
-    // Loading State
     if (loadingData || !giveaway) {
         return (
-            <div className="w-full max-w-md mx-auto pt-8 px-4 animate-pulse space-y-6">
-                <div className="h-8 bg-blue-500/20 rounded-xl w-48 mx-auto"></div>
-                <div className="glass-card p-6 h-64"></div>
+            <div className="w-full pt-8 space-y-4">
+                <div className="skeleton h-8 w-40 mx-auto"></div>
+                <div className="skeleton h-72 w-full"></div>
+                <div className="skeleton h-24 w-full"></div>
             </div>
         );
     }
@@ -196,102 +199,134 @@ export default function ClaimPage({ params }: { params: Promise<{ id: string }> 
     const isExpired = expiresAt > 0 && Date.now() / 1000 > Number(expiresAt);
     const isFull = Number(claimedCount) >= Number(maxClaims);
     const isClaimable = isActive && !isExpired && !isFull && !hasClaimed;
+    const claimPct = Number(maxClaims) > 0 ? (Number(claimedCount) / Number(maxClaims)) * 100 : 0;
+
+    // Time remaining
+    let timeLeft = "";
+    if (isActive && !isExpired && Number(expiresAt) > 0) {
+        const secs = Number(expiresAt) - Date.now() / 1000;
+        if (secs > 3600) timeLeft = `${Math.floor(secs / 3600)}h ${Math.floor((secs % 3600) / 60)}m left`;
+        else if (secs > 60) timeLeft = `${Math.floor(secs / 60)}m left`;
+        else timeLeft = `${Math.floor(secs)}s left`;
+    }
 
     return (
-        <div className="w-full max-w-md mx-auto space-y-6 pt-8 px-4 pb-12">
+        <div className="w-full space-y-5 pt-4 pb-8 animate-fade-up">
             {/* Header */}
-            <div className="text-center space-y-1 animate-fade-up">
-                <h1 className="text-3xl font-extrabold tracking-tight text-white drop-shadow-sm">
-                    Base <span className="text-blue-500">Kaget</span>
+            <div className="text-center space-y-1">
+                <p className="text-[10px] text-blue-400 font-bold uppercase tracking-[0.2em]">Fastest Finger First</p>
+                <h1 className="text-2xl font-extrabold text-white tracking-tight">
+                    Claim <span className="text-gradient-blue">Reward</span>
                 </h1>
-                <p className="text-xs text-blue-300 font-mono tracking-widest uppercase">Fastest Finger First</p>
             </div>
 
-            <div className="glass-card p-6 space-y-6 animate-fade-up" style={{ animationDelay: '0.1s' }}>
+            <div className="glass-card overflow-hidden">
                 {/* Status Banner */}
-                <div className={`text-center p-3 rounded-xl border flex items-center justify-center gap-2 ${isClaimable ? "bg-blue-500/10 border-blue-500/30 text-blue-200" :
-                    isActive ? "bg-white/5 border-white/10 text-gray-400" :
-                        "bg-red-500/10 border-red-500/30 text-red-300"
+                <div className={`px-5 py-3 flex items-center justify-between ${isClaimable ? "bg-blue-500/10" :
+                        hasClaimed ? "bg-green-500/10" :
+                            "bg-subtle"
                     }`}>
-                    <div className={`w-2 h-2 rounded-full ${isClaimable ? "bg-blue-400 animate-pulse" : isActive ? "bg-gray-500" : "bg-red-500"}`} />
-                    <span className="font-bold text-sm tracking-wide uppercase">
-                        {isActive ? (isFull ? "Max Claimed" : "Active Giveaway") : "Ended"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${isClaimable ? "bg-blue-400 animate-pulse" : hasClaimed ? "bg-green-400" : "bg-gray-500"}`} />
+                        <span className="text-xs font-bold uppercase tracking-wider text-gray-300">
+                            {!isActive ? "Ended" : isFull ? "Sold Out" : isExpired ? "Expired" : hasClaimed ? "Claimed ✓" : "Live"}
+                        </span>
+                    </div>
+                    {timeLeft && (
+                        <span className="text-[10px] text-gray-500 font-mono">{timeLeft}</span>
+                    )}
                 </div>
 
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-black/40 p-4 rounded-xl text-center border border-white/5">
-                        <p className="text-gray-500 text-[10px] uppercase font-bold mb-1 tracking-wider">Reward</p>
-                        <div className="flex items-end justify-center gap-1">
-                            <p className="text-xl font-bold text-white leading-none">{formatEther(BigInt(rewardPerClaim))}</p>
-                            <span className="text-xs text-gray-500 font-bold mb-[2px]">ETH</span>
+                <div className="p-5 space-y-5">
+                    {/* Reward Amount - Big */}
+                    <div className="text-center py-4">
+                        <p className="text-4xl font-extrabold text-white tracking-tight">{formatEther(BigInt(rewardPerClaim))}</p>
+                        <p className="text-sm text-gray-500 font-bold mt-1">ETH per person</p>
+                    </div>
+
+                    {/* Progress */}
+                    <div className="space-y-2">
+                        <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                            <div
+                                className={`h-full rounded-full transition-all duration-700 ${isFull ? "bg-blue-500" : claimPct > 80 ? "bg-orange-500" : "bg-blue-500"}`}
+                                style={{ width: `${Math.min(claimPct, 100)}%` }}
+                            />
+                        </div>
+                        <div className="flex justify-between text-xs">
+                            <span className="text-gray-500">{Number(claimedCount)} / {Number(maxClaims)} claimed</span>
+                            <span className="text-gray-600">{Math.round(claimPct)}%</span>
                         </div>
                     </div>
-                    <div className="bg-black/40 p-4 rounded-xl text-center border border-white/5">
-                        <p className="text-gray-500 text-[10px] uppercase font-bold mb-1 tracking-wider">Claimed</p>
-                        <div className="flex items-end justify-center gap-1">
-                            <p className="text-xl font-bold text-white leading-none">{Number(claimedCount)}</p>
-                            <span className="text-gray-500 text-sm mb-[2px]">/</span>
-                            <span className="text-gray-500 text-sm mb-[2px]">{Number(maxClaims)}</span>
+
+                    {/* Creator Info */}
+                    <div className="bg-black/30 rounded-xl p-3 flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-[10px] text-white font-bold flex-shrink-0">
+                            {creator?.slice(2, 4)}
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-[10px] text-gray-500 font-medium">Created by</p>
+                            <p className="text-xs text-white font-mono truncate">{creator}</p>
                         </div>
                     </div>
+
+                    {/* Claimed success */}
+                    {hasClaimed && (
+                        <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-5 text-center space-y-2">
+                            <div className="w-14 h-14 bg-green-500/15 rounded-2xl flex items-center justify-center mx-auto">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="#4ade80" className="w-7 h-7">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                            </div>
+                            <p className="text-white font-bold text-lg">Claimed!</p>
+                            <p className="text-green-300/60 text-xs">Reward sent to your wallet</p>
+                        </div>
+                    )}
+
+                    {/* Claim Button */}
+                    {!hasClaimed && (
+                        <>
+                            {!context ? (
+                                <div className="bg-black/20 rounded-xl border border-dashed border-white/10 p-6 text-center space-y-2">
+                                    <span className="text-2xl">⚠️</span>
+                                    <p className="text-gray-400 text-sm font-medium">Open in Farcaster to claim</p>
+                                </div>
+                            ) : !isConnected ? (
+                                <button onClick={() => connect({ connector: connectors[0] })} className="btn-primary w-full py-4 text-sm">
+                                    Connect Wallet to Claim
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={handleClaim}
+                                    disabled={!isClaimable || isClaimingAPI || isTxPending || isConfirming}
+                                    className="btn-primary w-full py-4 text-base disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    {isConfirming ? "Confirming..."
+                                        : isTxPending ? "Check Wallet..."
+                                            : isClaimingAPI ? "Checking Eligibility..."
+                                                : isFull ? "Sold Out"
+                                                    : isExpired ? "Expired"
+                                                        : "Claim Reward 💰"}
+                                </button>
+                            )}
+                        </>
+                    )}
+
+                    {error && (
+                        <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl">
+                            <p className="text-xs text-red-300 leading-relaxed">{error}</p>
+                        </div>
+                    )}
+
+                    {isSuccess && !hasClaimed && (
+                        <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl text-center">
+                            <p className="text-blue-400 font-bold text-sm">Transaction Confirmed!</p>
+                            <p className="text-blue-300/60 text-xs mt-0.5">Recording status...</p>
+                        </div>
+                    )}
                 </div>
-
-                {hasClaimed && (
-                    <div className="flex flex-col items-center justify-center p-6 bg-green-500/10 rounded-xl border border-green-500/20">
-                        <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mb-3">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="#4ade80" className="w-6 h-6">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                            </svg>
-                        </div>
-                        <p className="text-white font-bold text-lg">Claim Successful!</p>
-                        <p className="text-green-200/60 text-xs">Reward sent to your wallet.</p>
-                    </div>
-                )}
-
-                {!context ? (
-                    <div className="text-center p-8 bg-black/20 rounded-xl border border-dashed border-white/10 space-y-4">
-                        <div className="w-12 h-12 bg-yellow-500/10 rounded-full flex items-center justify-center mx-auto text-yellow-500">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
-                        </div>
-                        <p className="text-white font-medium">Context Not Found</p>
-                    </div>
-                ) : !isConnected ? (
-                    <button onClick={() => connect({ connector: connectors[0] })} className="btn-primary w-full py-3 bg-white/5 hover:bg-white/10 border-white/10">
-                        Connect Wallet to Claim
-                    </button>
-                ) : (
-                    <button
-                        onClick={handleClaim}
-                        disabled={!isClaimable || isClaimingAPI || isTxPending || isConfirming}
-                        className={`btn-primary w-full py-4 text-lg shadow-lg ${!isClaimable ? "opacity-50 grayscale cursor-not-allowed shadow-none" : "shadow-blue-500/20 hover:shadow-blue-500/40"}`}
-                    >
-                        {isConfirming ? "Confirming..."
-                            : isTxPending ? "Check Wallet..."
-                                : isClaimingAPI ? "Checking Eligibility..."
-                                    : isFull ? "Sold Out"
-                                        : isExpired ? "Expired"
-                                            : hasClaimed ? "Already Claimed"
-                                                : "Claim Reward 💰"}
-                    </button>
-                )}
-
-                {error && (
-                    <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl flex items-start gap-3">
-                        <div className="text-xs text-red-200 leading-relaxed">{error}</div>
-                    </div>
-                )}
-
-                {isSuccess && !hasClaimed && (
-                    <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-xl text-center">
-                        <p className="text-blue-400 font-bold text-sm">Transaction Confirmed!</p>
-                        <p className="text-blue-300/60 text-xs mt-1">Recording status...</p>
-                    </div>
-                )}
             </div>
 
-            {/* Winners List */}
+            {/* Winners */}
             <WinnersList winners={winnersList} />
         </div>
     );
@@ -300,52 +335,58 @@ export default function ClaimPage({ params }: { params: Promise<{ id: string }> 
 function WinnersList({ winners }: { winners: any[] }) {
     if (!winners || winners.length === 0) {
         return (
-            <div className="space-y-4 animate-fade-up" style={{ animationDelay: '0.2s' }}>
-                <h3 className="text-white font-bold ml-1 flex items-center gap-2">
-                    Winner History <span className="bg-blue-500/20 text-blue-300 text-[10px] px-2 py-0.5 rounded-full">0</span>
+            <div className="space-y-3">
+                <h3 className="text-sm font-bold text-gray-500 ml-1 flex items-center gap-2">
+                    Winners <span className="badge-info px-2 py-0.5 rounded-lg text-[10px] font-bold">0</span>
                 </h3>
-                <div className="glass-card p-6 text-center text-gray-500 text-sm">
-                    No one has claimed this yet. Be the first!
+                <div className="glass-card p-8 text-center space-y-2">
+                    <span className="text-2xl">🏆</span>
+                    <p className="text-gray-500 text-sm">No one has claimed yet. Be the first!</p>
                 </div>
             </div>
-        )
+        );
     }
 
     return (
-        <div className="space-y-4 animate-fade-up" style={{ animationDelay: '0.2s' }}>
-            <h3 className="text-white font-bold ml-1 flex items-center gap-2">
-                Winner History <span className="bg-blue-500/20 text-blue-300 text-[10px] px-2 py-0.5 rounded-full">{winners.length}</span>
+        <div className="space-y-3">
+            <h3 className="text-sm font-bold text-gray-500 ml-1 flex items-center gap-2">
+                Winners <span className="badge-info px-2 py-0.5 rounded-lg text-[10px] font-bold">{winners.length}</span>
             </h3>
             <div className="space-y-2">
                 {winners.map((w, idx) => (
                     <div key={`${w.txHash}-${idx}`} className="glass-card p-3 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            {w.avatarUrl ? (
-                                <img src={w.avatarUrl} alt={w.username} className="w-8 h-8 rounded-full border border-white/10" />
-                            ) : (
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-gray-700 to-gray-600 flex items-center justify-center text-[10px] text-white">
-                                    {w.fid}
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className="relative flex-shrink-0">
+                                {w.avatarUrl ? (
+                                    <img src={w.avatarUrl} alt={w.username} className="w-9 h-9 rounded-full border border-white/10 object-cover" />
+                                ) : (
+                                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-[10px] text-white font-bold">
+                                        {w.fid}
+                                    </div>
+                                )}
+                                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-[#14161F] rounded-full flex items-center justify-center">
+                                    <span className="text-[8px]">{idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`}</span>
                                 </div>
-                            )}
-                            <div>
-                                <p className="text-white text-sm font-bold">{w.username}</p>
-                                <p className="text-gray-500 text-[10px] font-mono">{w.fid}</p>
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-white text-sm font-bold truncate">{w.username || `FID ${w.fid}`}</p>
+                                <a
+                                    href={`${process.env.NEXT_PUBLIC_BASESCAN_URL || "https://basescan.org"}/tx/${w.txHash}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[10px] text-gray-600 hover:text-blue-400 transition-colors font-mono"
+                                >
+                                    {w.txHash?.slice(0, 10)}…
+                                </a>
                             </div>
                         </div>
-                        <div className="text-right">
-                            <p className="text-green-400 font-bold text-sm">+{formatEther(BigInt(w.amount || 0))} ETH</p>
-                            <a
-                                href={`${process.env.NEXT_PUBLIC_BASESCAN_URL || "https://basescan.org"}/tx/${w.txHash}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-[10px] text-blue-500/60 hover:text-blue-400"
-                            >
-                                View Tx
-                            </a>
+                        <div className="text-right flex-shrink-0">
+                            <p className="text-green-400 font-bold text-sm font-mono">+{formatEther(BigInt(w.amount || 0))}</p>
+                            <p className="text-[10px] text-gray-600">ETH</p>
                         </div>
                     </div>
                 ))}
             </div>
         </div>
-    )
+    );
 }
