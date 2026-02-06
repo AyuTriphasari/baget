@@ -324,14 +324,11 @@ export default function Home() {
 
                 <button
                   onClick={() => {
-                    const params = new URLSearchParams({
+                    sdk.actions.composeCast({
                       text: "Fastest finger first! 💰 Claim this Base Kaget giveaway now! 👇",
-                      embed: `${process.env.NEXT_PUBLIC_URL}/baget/${giveawayId}`
+                      embeds: [`${process.env.NEXT_PUBLIC_URL}/baget/${giveawayId}`],
                     });
-
-                    sdk.actions.openUrl(`https://warpcast.com/~/compose?${params.toString()}`);
                   }}
-
                   className="btn-primary w-full py-3.5 text-base flex items-center justify-center gap-2"
                 >
                   <span>Share on Farcaster</span>

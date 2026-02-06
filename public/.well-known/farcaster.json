@@ -30,15 +30,5 @@
         "requiredCapabilities": [
             "wallet.getEthereumProvider"
         ]
-    },
-    "frame": {
-        "version": "1",
-        "name": "Base Kaget",
-        "iconUrl": "https://basekaget.tech/api/icon",
-        "homeUrl": "https://basekaget.tech",
-        "imageUrl": "https://basekaget.tech/api/og",
-        "buttonTitle": "🎁 Launch Kaget",
-        "splashImageUrl": "https://basekaget.tech/api/splash",
-        "splashBackgroundColor": "#0B0C10"
     }
 }

@@ -50,10 +50,13 @@ export default function ClaimPage({ params }: { params: Promise<{ id: string }> 
     }, []);
 
     // Fetch API Data
-    const fetchGiveawayData = useCallback(async () => {
+    const fetchGiveawayData = useCallback(async (fresh = false) => {
         if (!id) return;
         try {
-            const res = await fetch(`/api/giveaways?id=${id}`);
+            const url = fresh
+                ? `/api/giveaways?id=${id}&fresh=1`
+                : `/api/giveaways?id=${id}`;
+            const res = await fetch(url);
             if (!res.ok) throw new Error("Giveaway not found");
             const data = await res.json();
             setGiveaway(data);
@@ -68,6 +71,17 @@ export default function ClaimPage({ params }: { params: Promise<{ id: string }> 
 
     useEffect(() => {
         fetchGiveawayData();
+    }, [fetchGiveawayData]);
+
+    // Auto-refresh when tab becomes visible
+    useEffect(() => {
+        const handleVisibility = () => {
+            if (document.visibilityState === "visible") {
+                fetchGiveawayData(true);
+            }
+        };
+        document.addEventListener("visibilitychange", handleVisibility);
+        return () => document.removeEventListener("visibilitychange", handleVisibility);
     }, [fetchGiveawayData]);
 
     // Check if already claimed (Client side check from winners list)
@@ -94,8 +108,8 @@ export default function ClaimPage({ params }: { params: Promise<{ id: string }> 
                             amount: giveaway.rewardPerClaim
                         })
                     });
-                    // Refetch data to update UI
-                    fetchGiveawayData();
+                    // Refetch data with fresh contract data (bypass cache)
+                    fetchGiveawayData(true);
                 } catch (e) {
                     console.error("Failed to record claim", e);
                 }

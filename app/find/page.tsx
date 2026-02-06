@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { formatEther } from "viem";
 
@@ -8,23 +8,39 @@ export default function FindPage() {
     const router = useRouter();
     const [giveaways, setGiveaways] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
+    const fetchGiveaways = useCallback(async (showLoading = true) => {
+        if (showLoading) setIsLoading(true);
+        else setIsRefreshing(true);
+        try {
+            const res = await fetch("/api/giveaways");
+            if (!res.ok) throw new Error("Failed to fetch");
+            const data = await res.json();
+            setGiveaways(data);
+        } catch (e) {
+            console.error("Error fetching giveaways:", e);
+        } finally {
+            setIsLoading(false);
+            setIsRefreshing(false);
+        }
+    }, []);
+
+    // Fetch on mount
     useEffect(() => {
-        const fetchGiveaways = async () => {
-            try {
-                const res = await fetch("/api/giveaways");
-                if (!res.ok) throw new Error("Failed to fetch");
-                const data = await res.json();
-                setGiveaways(data);
-            } catch (e) {
-                console.error("Error fetching giveaways:", e);
-            } finally {
-                setIsLoading(false);
+        fetchGiveaways();
+    }, [fetchGiveaways]);
+
+    // Auto-refresh when tab becomes visible again
+    useEffect(() => {
+        const handleVisibility = () => {
+            if (document.visibilityState === "visible") {
+                fetchGiveaways(false);
             }
         };
-
-        fetchGiveaways();
-    }, []);
+        document.addEventListener("visibilitychange", handleVisibility);
+        return () => document.removeEventListener("visibilitychange", handleVisibility);
+    }, [fetchGiveaways]);
 
     return (
         <div className="w-full max-w-md mx-auto space-y-8 pt-8 px-4 pb-24">
@@ -54,11 +70,11 @@ export default function FindPage() {
             <div className="space-y-4 animate-fade-up" style={{ animationDelay: '0.2s' }}>
                 <div className="flex items-center justify-between px-2">
                     <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Latest Drops</h2>
-                    <button onClick={() => window.location.reload()} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3">
+                    <button onClick={() => fetchGiveaways(false)} disabled={isRefreshing} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 disabled:opacity-50">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
                         </svg>
-                        Refresh
+                        {isRefreshing ? "Updating..." : "Refresh"}
                     </button>
                 </div>
 

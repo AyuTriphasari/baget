@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { formatEther } from "viem";
 import { BaseKagetABI } from "../abi/BaseKaget";
@@ -20,28 +20,49 @@ export default function DashboardPage() {
     const [txHash, setTxHash] = useState<`0x${string}` | undefined>(undefined);
     const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
 
-    useEffect(() => {
-        const fetchMyGiveaways = async () => {
-            if (!address) return;
-            setIsLoading(true);
-            setError("");
-            try {
-                const res = await fetch(`/api/giveaways?creator=${address}`);
-                if (!res.ok) throw new Error("Failed to fetch giveaways");
-                const data = await res.json();
-                setGiveaways(data);
-            } catch (e: any) {
-                console.error("Error fetching dashboard:", e);
-                setError(e.message || "Failed to load giveaways. Please try again.");
-            } finally {
-                setIsLoading(false);
-            }
-        };
+    const fetchMyGiveaways = useCallback(async () => {
+        if (!address) return;
+        setIsLoading(true);
+        setError("");
+        try {
+            const res = await fetch(`/api/giveaways?creator=${address}`);
+            if (!res.ok) throw new Error("Failed to fetch giveaways");
+            const data = await res.json();
+            setGiveaways(data);
+        } catch (e: any) {
+            console.error("Error fetching dashboard:", e);
+            setError(e.message || "Failed to load giveaways. Please try again.");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [address]);
 
+    // Fetch on mount and when connected
+    useEffect(() => {
         if (isConnected) {
             fetchMyGiveaways();
         }
-    }, [address, isConnected, isSuccess]);
+    }, [isConnected, fetchMyGiveaways]);
+
+    // Refetch after successful withdraw/cancel
+    useEffect(() => {
+        if (isSuccess) {
+            // Small delay to let blockchain state propagate
+            const timer = setTimeout(() => fetchMyGiveaways(), 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [isSuccess, txHash, fetchMyGiveaways]);
+
+    // Auto-refresh when tab becomes visible
+    useEffect(() => {
+        const handleVisibility = () => {
+            if (document.visibilityState === "visible" && isConnected) {
+                fetchMyGiveaways();
+            }
+        };
+        document.addEventListener("visibilitychange", handleVisibility);
+        return () => document.removeEventListener("visibilitychange", handleVisibility);
+    }, [isConnected, fetchMyGiveaways]);
 
     const handleWithdraw = async (uuid: string, isExpired: boolean) => {
         try {

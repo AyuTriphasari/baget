@@ -3,9 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
 
-// Cache for contract status (60 seconds TTL)
+// Cache for contract status (10 seconds TTL)
 const statusCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 60000; // 60 seconds
+const CACHE_TTL = 10000; // 10 seconds
 
 // Input validation helpers
 function isValidAddress(address: string): boolean {
@@ -23,11 +23,13 @@ const publicClient = createPublicClient({
     transport: http(process.env.NEXT_PUBLIC_RPC_URL || "https://mainnet.base.org"),
 });
 
-async function getGiveawayStatus(giveawayId: string) {
-    // Check cache first
-    const cached = statusCache.get(giveawayId);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-        return cached.data;
+async function getGiveawayStatus(giveawayId: string, skipCache = false) {
+    // Check cache first (unless skipCache)
+    if (!skipCache) {
+        const cached = statusCache.get(giveawayId);
+        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+            return cached.data;
+        }
     }
 
     try {
@@ -125,6 +127,8 @@ export async function GET(req: NextRequest) {
     const id = searchParams.get("id");
     const creator = searchParams.get("creator");
 
+    const fresh = searchParams.get("fresh") === "1";
+
     try {
         if (id) {
             const giveaway = await prisma.giveaway.findUnique({
@@ -133,8 +137,8 @@ export async function GET(req: NextRequest) {
             });
             if (!giveaway) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-            // Get real status from contract
-            const contractStatus = await getGiveawayStatus(id);
+            // Get real status from contract (skip cache if fresh=1)
+            const contractStatus = await getGiveawayStatus(id, fresh);
 
             return NextResponse.json({
                 ...giveaway,
