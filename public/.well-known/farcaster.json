@@ -7,7 +7,7 @@
     "frame": {
         "version": "1",
         "name": "Base Kaget",
-        "iconUrl": "https://basekaget.tech/icon.png",
+        "iconUrl": "https://basekaget.tech/icon.svg",
         "homeUrl": "https://basekaget.tech",
         "imageUrl": "https://basekaget.tech/preview.svg",
         "buttonTitle": "Launch Kaget",

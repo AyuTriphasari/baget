@@ -1,0 +1,18 @@
+{
+    "name": "Base Kaget",
+    "short_name": "Kaget",
+    "description": "Create and claim instant giveaways on Base",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0B0C10",
+    "theme_color": "#3B82F6",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "/icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ]
+}
