@@ -81,7 +81,7 @@ async function getGiveawayStatus(giveawayId: string, skipCache = false) {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { id, creator, token, amount, rewardPerClaim, maxClaims, expiresAt, txHash } = body;
+        const { id, creator, token, amount, rewardPerClaim, maxClaims, expiresAt, txHash, tokenSymbol, tokenDecimals } = body;
 
         // Input validation
         if (!id || !isValidId(id.toString())) {
@@ -113,6 +113,8 @@ export async function POST(req: NextRequest) {
                 maxClaims: Number(maxClaims),
                 expiresAt: Number(expiresAt),
                 txHash,
+                tokenSymbol: typeof tokenSymbol === "string" && tokenSymbol.length > 0 ? tokenSymbol : "ETH",
+                tokenDecimals: typeof tokenDecimals === "number" && tokenDecimals >= 0 ? tokenDecimals : 18,
             },
         });
 

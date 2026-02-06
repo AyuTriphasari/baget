@@ -3,7 +3,7 @@
 import { useEffect, useState, use, useCallback, useRef } from "react";
 import sdk from "@farcaster/miniapp-sdk";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useConnect } from "wagmi";
-import { formatEther } from "viem";
+import { formatUnits } from "viem";
 import { BaseKagetABI } from "../../abi/BaseKaget";
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
@@ -262,8 +262,8 @@ export default function ClaimPage({ params }: { params: Promise<{ id: string }> 
                 <div className="p-5 space-y-5">
                     {/* Reward Amount - Big */}
                     <div className="text-center py-4">
-                        <p className="text-4xl font-extrabold text-white tracking-tight">{formatEther(BigInt(rewardPerClaim))}</p>
-                        <p className="text-sm text-gray-500 font-bold mt-1">ETH per person</p>
+                        <p className="text-4xl font-extrabold text-white tracking-tight">{formatUnits(BigInt(rewardPerClaim), giveaway.tokenDecimals ?? 18)}</p>
+                        <p className="text-sm text-gray-500 font-bold mt-1">{giveaway.tokenSymbol ?? "ETH"} per person</p>
                     </div>
 
                     {/* Progress */}
@@ -349,12 +349,12 @@ export default function ClaimPage({ params }: { params: Promise<{ id: string }> 
             </div>
 
             {/* Winners */}
-            <WinnersList winners={winnersList} />
+            <WinnersList winners={winnersList} tokenSymbol={giveaway.tokenSymbol ?? "ETH"} tokenDecimals={giveaway.tokenDecimals ?? 18} />
         </div>
     );
 }
 
-function WinnersList({ winners }: { winners: any[] }) {
+function WinnersList({ winners, tokenSymbol, tokenDecimals }: { winners: any[]; tokenSymbol: string; tokenDecimals: number }) {
     if (!winners || winners.length === 0) {
         return (
             <div className="space-y-3">
@@ -403,8 +403,8 @@ function WinnersList({ winners }: { winners: any[] }) {
                             </div>
                         </div>
                         <div className="text-right flex-shrink-0">
-                            <p className="text-green-400 font-bold text-sm font-mono">+{formatEther(BigInt(w.amount || 0))}</p>
-                            <p className="text-[10px] text-gray-600">ETH</p>
+                            <p className="text-green-400 font-bold text-sm font-mono">+{formatUnits(BigInt(w.amount || 0), tokenDecimals)}</p>
+                            <p className="text-[10px] text-gray-600">{tokenSymbol}</p>
                         </div>
                     </div>
                 ))}

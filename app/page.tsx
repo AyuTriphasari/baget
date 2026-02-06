@@ -1,22 +1,49 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from "wagmi";
-import { parseEther, decodeEventLog } from "viem";
+import { parseUnits, formatUnits, erc20Abi, createPublicClient, http } from "viem";
+import { base } from "viem/chains";
 import { BaseKagetABI } from "./abi/BaseKaget";
+import { useToast } from "./components/Toast";
 import sdk from "@farcaster/miniapp-sdk";
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+const publicClient = createPublicClient({
+  chain: base,
+  transport: http(process.env.NEXT_PUBLIC_RPC_URL || "https://mainnet.base.org"),
+});
+
+// Popular Base tokens for quick selection
+const POPULAR_TOKENS = [
+  { symbol: "USDC", address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as `0x${string}`, decimals: 6, icon: "💵" },
+  { symbol: "DEGEN", address: "0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed" as `0x${string}`, decimals: 18, icon: "🎩" },
+  { symbol: "BRETT", address: "0x532f27101965dd16442E59d40670FaF5eBB142E4" as `0x${string}`, decimals: 18, icon: "🐸" },
+];
 
 export default function Home() {
   const { address, isConnected } = useAccount();
   const { connectors, connect } = useConnect();
+  const { toast } = useToast();
 
   // Form State
   const [amount, setAmount] = useState("");
   const [maxClaims, setMaxClaims] = useState("");
   const [duration, setDuration] = useState("24");
   const [giveawayId, setGiveawayId] = useState<string | null>(null);
+
+  // Token State
+  const [tokenType, setTokenType] = useState<"ETH" | "ERC20">("ETH");
+  const [tokenAddress, setTokenAddress] = useState("");
+  const [tokenSymbol, setTokenSymbol] = useState("");
+  const [tokenDecimals, setTokenDecimals] = useState<number>(18);
+  const [tokenLoading, setTokenLoading] = useState(false);
+  const [tokenError, setTokenError] = useState("");
+
+  // Approve State
+  const [approveStep, setApproveStep] = useState<"idle" | "approving" | "approved">("idle");
 
   // Auto-connect wallet in Farcaster miniapp
   useEffect(() => {
@@ -45,14 +72,129 @@ export default function Home() {
   const { switchChain } = useSwitchChain();
   const { chainId } = useAccount();
 
+  // Fetch token info when address changes
+  const fetchTokenInfo = useCallback(async (addr: string) => {
+    if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) {
+      setTokenSymbol("");
+      setTokenDecimals(18);
+      setTokenError("");
+      return;
+    }
+
+    setTokenLoading(true);
+    setTokenError("");
+    try {
+      const [symbol, decimals] = await Promise.all([
+        publicClient.readContract({
+          address: addr as `0x${string}`,
+          abi: erc20Abi,
+          functionName: "symbol",
+        }),
+        publicClient.readContract({
+          address: addr as `0x${string}`,
+          abi: erc20Abi,
+          functionName: "decimals",
+        }),
+      ]);
+      setTokenSymbol(symbol as string);
+      setTokenDecimals(Number(decimals));
+      setTokenError("");
+    } catch {
+      setTokenSymbol("");
+      setTokenDecimals(18);
+      setTokenError("Invalid ERC20 token address");
+    } finally {
+      setTokenLoading(false);
+    }
+  }, []);
+
+  // Debounce token address lookup
+  useEffect(() => {
+    if (tokenType !== "ERC20" || !tokenAddress) return;
+    const timer = setTimeout(() => fetchTokenInfo(tokenAddress), 500);
+    return () => clearTimeout(timer);
+  }, [tokenAddress, tokenType, fetchTokenInfo]);
+
+  // Select a popular token
+  const selectPopularToken = (token: typeof POPULAR_TOKENS[0]) => {
+    setTokenType("ERC20");
+    setTokenAddress(token.address);
+    setTokenSymbol(token.symbol);
+    setTokenDecimals(token.decimals);
+    setTokenError("");
+    setApproveStep("idle");
+  };
+
+  // Reset token state when switching to ETH
+  const selectETH = () => {
+    setTokenType("ETH");
+    setTokenAddress("");
+    setTokenSymbol("");
+    setTokenDecimals(18);
+    setTokenError("");
+    setApproveStep("idle");
+  };
+
+  // Current active symbol/decimals for display
+  const activeSymbol = tokenType === "ETH" ? "ETH" : (tokenSymbol || "TOKEN");
+  const activeDecimals = tokenType === "ETH" ? 18 : tokenDecimals;
+
+  // Compute total cost in smallest unit
+  const computeTotalCost = (): bigint | null => {
+    if (!amount || !maxClaims || Number(amount) <= 0 || Number(maxClaims) <= 0) return null;
+    try {
+      const rewardWei = parseUnits(amount, activeDecimals);
+      return rewardWei * BigInt(maxClaims);
+    } catch {
+      return null;
+    }
+  };
+
+  const handleApprove = async () => {
+    if (tokenType !== "ERC20" || !tokenAddress || !tokenSymbol) return;
+    const totalCost = computeTotalCost();
+    if (!totalCost) return;
+
+    if (chainId !== 8453) {
+      try { switchChain({ chainId: 8453 }); return; } catch { toast("Please switch to Base"); return; }
+    }
+
+    setApproveStep("approving");
+    try {
+      const hash = await writeContractAsync({
+        address: tokenAddress as `0x${string}`,
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [CONTRACT_ADDRESS, totalCost],
+      });
+      // Wait for approval tx to be mined
+      await publicClient.waitForTransactionReceipt({ hash });
+      setApproveStep("approved");
+    } catch (e: any) {
+      console.error("Approve Error:", e);
+      setApproveStep("idle");
+      toast(`Approval failed: ${e.message || "Unknown error"}`);
+    }
+  };
+
   const handleCreate = async () => {
     if (!amount || !maxClaims) {
-      alert("Please enter amount and max claims");
+      toast("Please enter amount and max claims");
       return;
     }
 
     if (Number(amount) <= 0 || Number(maxClaims) <= 0 || Number(duration) <= 0) {
-      alert("Values must be positive numbers");
+      toast("Values must be positive numbers");
+      return;
+    }
+
+    if (Number(amount) < 0.00001) {
+      toast("Minimum reward per person is 0.00001");
+      return;
+    }
+
+    if (tokenType === "ERC20" && (!tokenAddress || !tokenSymbol || tokenError)) {
+      toast("Please enter a valid token address");
       return;
     }
 
@@ -63,7 +205,7 @@ export default function Home() {
         return;
       } catch (e) {
         console.error("Failed to switch chain", e);
-        alert("Please switch to Base");
+        toast("Please switch to Base");
         return;
       }
     }
@@ -76,28 +218,41 @@ export default function Home() {
       const uuid = crypto.randomUUID();
       const idBigInt = BigInt("0x" + uuid.replace(/-/g, ""));
 
-      const totalCost = parseEther(amount) * BigInt(maxClaims);
+      const rewardWei = parseUnits(amount, activeDecimals);
+      const totalCost = rewardWei * BigInt(maxClaims);
+      const durationSecs = BigInt(Math.floor(Number(duration) * 3600));
 
-      const hash = await writeContractAsync({
-        address: CONTRACT_ADDRESS,
-        abi: BaseKagetABI,
-        functionName: "createGiveaway",
-        args: [idBigInt, BigInt(maxClaims), parseEther(amount), BigInt(Math.floor(Number(duration) * 3600))],
-        value: totalCost,
-        chainId: 8453,
-      });
+      let hash: `0x${string}`;
+
+      if (tokenType === "ETH") {
+        // Native ETH giveaway
+        hash = await writeContractAsync({
+          address: CONTRACT_ADDRESS,
+          abi: BaseKagetABI,
+          functionName: "createGiveaway",
+          args: [idBigInt, BigInt(maxClaims), rewardWei, durationSecs],
+          value: totalCost,
+        });
+      } else {
+        // ERC20 giveaway — approval must be done first
+        if (approveStep !== "approved") {
+          toast("Please approve the token first");
+          return;
+        }
+        hash = await writeContractAsync({
+          address: CONTRACT_ADDRESS,
+          abi: BaseKagetABI,
+          functionName: "createGiveawayERC20",
+          args: [idBigInt, tokenAddress as `0x${string}`, BigInt(maxClaims), rewardWei, durationSecs],
+        });
+      }
 
       console.log("Transaction sent:", hash);
-      setTxHash(hash);
-      // Set ID immediately so UI can show the link once confirmed (or even before, but better wait?)
-      // We'll set it here to show "pending" or just wait for receipt? 
-      // The current UI logic shows success when `isSuccess` (from receipt). 
-      // Let's store the ID so we can show it.
       setGiveawayId(uuid);
       setTxHash(hash);
     } catch (e: any) {
       console.error("Create Error:", e);
-      alert(`Error creating giveaway: ${e.message || "Unknown error"}`);
+      toast(`Error creating giveaway: ${e.message || "Unknown error"}`);
     }
   };
 
@@ -106,7 +261,8 @@ export default function Home() {
     if (isConfirmedTx && giveawayId && txHash && address) {
       const saveToDb = async () => {
         try {
-          const totalAmount = parseEther(amount) * BigInt(maxClaims);
+          const rewardWei = parseUnits(amount, activeDecimals);
+          const totalAmount = rewardWei * BigInt(maxClaims);
           // Calculate expiration
           const expiresAt = Math.floor(Date.now() / 1000) + Math.floor(Number(duration) * 3600);
 
@@ -116,12 +272,14 @@ export default function Home() {
             body: JSON.stringify({
               id: giveawayId, // UUID string
               creator: address,
-              token: "0x0000000000000000000000000000000000000000",
+              token: tokenType === "ETH" ? ZERO_ADDRESS : tokenAddress,
               amount: totalAmount.toString(),
-              rewardPerClaim: parseEther(amount).toString(),
+              rewardPerClaim: rewardWei.toString(),
               maxClaims: maxClaims,
               expiresAt: expiresAt,
-              txHash: txHash
+              txHash: txHash,
+              tokenSymbol: tokenType === "ETH" ? "ETH" : tokenSymbol,
+              tokenDecimals: activeDecimals,
             })
           });
           console.log("Giveaway saved to DB");
@@ -131,7 +289,16 @@ export default function Home() {
       };
       saveToDb();
     }
-  }, [isConfirmedTx, giveawayId, txHash, address, amount, maxClaims, duration]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConfirmedTx, giveawayId, txHash, address]);
+
+  // Reset approve step when token/amount changes
+  useEffect(() => {
+    setApproveStep("idle");
+  }, [tokenAddress, amount, maxClaims]);
+
+  const totalCost = computeTotalCost();
+  const isERC20Ready = tokenType === "ERC20" && tokenSymbol && !tokenError && !tokenLoading;
 
   return (
     <div className="w-full space-y-6 pt-4 animate-fade-up">
@@ -157,12 +324,85 @@ export default function Home() {
             <h1 className="text-2xl font-extrabold text-white tracking-tight">
               Create <span className="text-gradient-blue">Giveaway</span>
             </h1>
-            <p className="text-gray-500 text-sm">Drop ETH rewards for your community</p>
+            <p className="text-gray-500 text-sm">Drop rewards for your community</p>
           </div>
 
           {/* Form */}
           <div className="glass-card p-6 space-y-5">
             <div className="space-y-4">
+
+              {/* Token Selector */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider ml-1">Token</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={selectETH}
+                    className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-bold transition-all border ${tokenType === "ETH"
+                      ? "bg-blue-500/15 border-blue-500/30 text-blue-400"
+                      : "bg-white/5 border-white/10 text-gray-500 hover:text-gray-300"
+                      }`}
+                  >
+                    ⟠ ETH
+                  </button>
+                  <button
+                    onClick={() => setTokenType("ERC20")}
+                    className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-bold transition-all border ${tokenType === "ERC20"
+                      ? "bg-purple-500/15 border-purple-500/30 text-purple-400"
+                      : "bg-white/5 border-white/10 text-gray-500 hover:text-gray-300"
+                      }`}
+                  >
+                    🪙 Token
+                  </button>
+                </div>
+
+                {/* Popular Tokens + Address Input */}
+                {tokenType === "ERC20" && (
+                  <div className="space-y-2">
+                    <div className="flex gap-2 flex-wrap">
+                      {POPULAR_TOKENS.map((t) => (
+                        <button
+                          key={t.address}
+                          onClick={() => selectPopularToken(t)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${tokenAddress === t.address
+                            ? "bg-purple-500/15 border-purple-500/30 text-purple-400"
+                            : "bg-white/5 border-white/10 text-gray-400 hover:text-white hover:border-white/20"
+                            }`}
+                        >
+                          {t.icon} {t.symbol}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Or paste token address (0x...)"
+                        value={tokenAddress}
+                        onChange={(e) => {
+                          setTokenAddress(e.target.value);
+                          setApproveStep("idle");
+                        }}
+                        className="glass-input w-full p-3 text-sm font-mono placeholder:text-gray-600 focus:outline-none"
+                      />
+                      {tokenLoading && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <div className="w-4 h-4 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                    {tokenError && (
+                      <p className="text-red-400 text-xs ml-1">{tokenError}</p>
+                    )}
+                    {tokenSymbol && !tokenError && (
+                      <div className="flex items-center gap-2 ml-1">
+                        <div className="w-2 h-2 rounded-full bg-green-400" />
+                        <span className="text-xs text-green-400 font-bold">{tokenSymbol}</span>
+                        <span className="text-xs text-gray-600">({tokenDecimals} decimals)</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Amount */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider ml-1">Reward per Person</label>
@@ -170,15 +410,15 @@ export default function Home() {
                   <input
                     type="number"
                     inputMode="decimal"
-                    placeholder="0.001"
-                    min="0"
-                    step="0.0001"
+                    placeholder={tokenType === "ETH" ? "0.001" : "10"}
+                    min="0.00001"
+                    step="any"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="glass-input w-full p-4 pr-16 text-lg font-mono placeholder:text-gray-600 focus:outline-none"
+                    className="glass-input w-full p-4 pr-20 text-lg font-mono placeholder:text-gray-600 focus:outline-none"
                   />
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-500">
-                    ETH
+                    {activeSymbol}
                   </div>
                 </div>
               </div>
@@ -219,12 +459,12 @@ export default function Home() {
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Total Cost</span>
                   <span className="text-white font-bold font-mono">
-                    {(Number(amount) * Number(maxClaims)).toFixed(6)} ETH
+                    {totalCost ? formatUnits(totalCost, activeDecimals) : "—"} {activeSymbol}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Per Person</span>
-                  <span className="text-blue-400 font-mono">{amount} ETH</span>
+                  <span className="text-blue-400 font-mono">{amount} {activeSymbol}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Slots</span>
@@ -233,14 +473,24 @@ export default function Home() {
               </div>
             )}
 
-            {/* Submit */}
-            <button
-              onClick={handleCreate}
-              disabled={isPending || isConfirmingTx}
-              className="btn-primary w-full py-4 text-base"
-            >
-              {isPending ? "Confirming in Wallet..." : isConfirmingTx ? "Transaction Pending..." : "Launch Giveaway 🚀"}
-            </button>
+            {/* Approve + Submit Buttons */}
+            {tokenType === "ERC20" && isERC20Ready && approveStep !== "approved" ? (
+              <button
+                onClick={handleApprove}
+                disabled={isPending || approveStep === "approving" || !totalCost}
+                className="btn-primary w-full py-4 text-base"
+              >
+                {approveStep === "approving" ? "Approving..." : `Approve ${tokenSymbol}`}
+              </button>
+            ) : (
+              <button
+                onClick={handleCreate}
+                disabled={isPending || isConfirmingTx || (tokenType === "ERC20" && approveStep !== "approved")}
+                className="btn-primary w-full py-4 text-base"
+              >
+                {isPending ? "Confirming in Wallet..." : isConfirmingTx ? "Transaction Pending..." : "Launch Giveaway 🚀"}
+              </button>
+            )}
           </div>
 
           {isConfirmedTx && giveawayId && (
@@ -264,7 +514,7 @@ export default function Home() {
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_URL}/baget/${giveawayId}`);
-                      alert("Copied!");
+                      toast("Copied!", "success");
                     }}
                     className="px-3 py-2 bg-white/10 hover:bg-white/15 rounded-lg text-xs font-bold text-white transition-colors"
                   >
@@ -293,6 +543,7 @@ export default function Home() {
                     setTxHash(undefined);
                     setAmount("");
                     setMaxClaims("");
+                    setApproveStep("idle");
                   }}
                   className="w-full py-2 text-sm text-gray-500 hover:text-white transition-colors"
                 >

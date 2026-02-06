@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { formatEther } from "viem";
+import { formatUnits } from "viem";
 
 export default function FindPage() {
     const router = useRouter();
@@ -139,8 +139,8 @@ export default function FindPage() {
                                 <div className="flex justify-between items-start">
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xl font-bold text-white">{formatEther(BigInt(g.rewardPerClaim || 0))}</span>
-                                            <span className="text-xs font-bold text-gray-500">ETH</span>
+                                            <span className="text-xl font-bold text-white">{formatUnits(BigInt(g.rewardPerClaim || 0), g.tokenDecimals ?? 18)}</span>
+                                            <span className="text-xs font-bold text-gray-500">{g.tokenSymbol ?? "ETH"}</span>
                                             <span className="text-gray-600 text-xs">/ person</span>
                                         </div>
                                         <p className="text-gray-600 text-xs font-mono">

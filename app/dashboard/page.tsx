@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { formatEther } from "viem";
+import { formatUnits } from "viem";
 import { BaseKagetABI } from "../abi/BaseKaget";
+import { useToast } from "../components/Toast";
 import { useRouter } from "next/navigation";
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
@@ -11,6 +12,7 @@ const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string
 export default function DashboardPage() {
     const { address, isConnected } = useAccount();
     const router = useRouter();
+    const { toast } = useToast();
     const [giveaways, setGiveaways] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState("");
@@ -92,7 +94,7 @@ export default function DashboardPage() {
             console.error(e);
             setProcessingId(null);
             const action = isExpired ? "Withdraw" : "Cancel";
-            alert(`${action} failed: ` + (e.message || "Unknown error"));
+            toast(`${action} failed: ` + (e.message || "Unknown error"));
         }
     };
 
@@ -108,13 +110,20 @@ export default function DashboardPage() {
     }
 
     // Stats
-    const totalDistributed = giveaways.reduce((sum, g) => {
-        return sum + Number(formatEther(BigInt(g.rewardPerClaim))) * Number(g.claimedCount);
-    }, 0);
     const totalActive = giveaways.filter(g => {
         const now = Date.now() / 1000;
         return g.isActive && !(Number(g.expiresAt) > 0 && now > Number(g.expiresAt));
     }).length;
+
+    // Group distributed totals by token symbol
+    const distributedByToken: Record<string, number> = {};
+    for (const g of giveaways) {
+        const sym = g.tokenSymbol ?? "ETH";
+        const dec = g.tokenDecimals ?? 18;
+        const val = Number(formatUnits(BigInt(g.rewardPerClaim), dec)) * Number(g.claimedCount);
+        distributedByToken[sym] = (distributedByToken[sym] || 0) + val;
+    }
+    const distributedEntries = Object.entries(distributedByToken).filter(([, v]) => v > 0);
 
     return (
         <div className="w-full space-y-5 pt-4 animate-fade-up">
@@ -137,8 +146,17 @@ export default function DashboardPage() {
                         <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Active</p>
                     </div>
                     <div className="glass-card p-3 text-center">
-                        <p className="text-xl font-bold text-blue-400">{totalDistributed.toFixed(4)}</p>
-                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">ETH Sent</p>
+                        {distributedEntries.length > 0 ? distributedEntries.map(([sym, val]) => (
+                            <div key={sym}>
+                                <p className="text-xl font-bold text-blue-400">{val.toFixed(4)}</p>
+                                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">{sym} Sent</p>
+                            </div>
+                        )) : (
+                            <div>
+                                <p className="text-xl font-bold text-blue-400">0</p>
+                                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Sent</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -194,7 +212,7 @@ export default function DashboardPage() {
                                         <span className={`px-2.5 py-1 text-[10px] rounded-lg font-bold uppercase tracking-wider ${badgeClass}`}>
                                             {statusLabel}
                                         </span>
-                                        <h3 className="text-white font-bold text-lg">{formatEther(BigInt(g.rewardPerClaim))} ETH <span className="text-gray-600 text-sm font-normal">/ person</span></h3>
+                                        <h3 className="text-white font-bold text-lg">{formatUnits(BigInt(g.rewardPerClaim), g.tokenDecimals ?? 18)} {g.tokenSymbol ?? "ETH"} <span className="text-gray-600 text-sm font-normal">/ person</span></h3>
                                     </div>
                                     <div className="text-right space-y-1">
                                         <p className="text-[10px] text-gray-600 font-mono">#{g.id.slice(0, 8)}</p>

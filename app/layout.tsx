@@ -76,6 +76,7 @@ export const metadata: Metadata = {
 import FrameInit from "./components/FrameInit";
 import BottomNav from "./components/BottomNav";
 import TopNav from "./components/TopNav";
+import { ToastProvider } from "./components/Toast";
 
 export default function RootLayout({
   children,
@@ -91,12 +92,14 @@ export default function RootLayout({
       </head>
       <body>
         <Providers>
-          <FrameInit />
-          <TopNav />
-          <BottomNav />
-          <main className="min-h-screen w-full flex flex-col items-center px-4 pb-28 pt-2 max-w-lg mx-auto">
-            {children}
-          </main>
+          <ToastProvider>
+            <FrameInit />
+            <TopNav />
+            <BottomNav />
+            <main className="min-h-screen w-full flex flex-col items-center px-4 pb-28 pt-2 max-w-lg mx-auto">
+              {children}
+            </main>
+          </ToastProvider>
         </Providers>
       </body>
     </html>

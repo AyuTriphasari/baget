@@ -16,6 +16,8 @@ model Giveaway {
   maxClaims      Int
   expiresAt      Int      // unix timestamp
   txHash         String?
+  tokenSymbol    String   @default("ETH")
+  tokenDecimals  Int      @default(18)
   createdAt      DateTime @default(now())
 
   // Relations
