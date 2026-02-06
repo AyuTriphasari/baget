@@ -3,7 +3,6 @@
 import { useEffect, useState, use, useCallback } from "react";
 import sdk from "@farcaster/miniapp-sdk";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useConnect } from "wagmi";
-import { injected } from "wagmi/connectors";
 import { formatEther } from "viem";
 import { BaseKagetABI } from "../../abi/BaseKaget";
 
@@ -12,7 +11,7 @@ const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string
 export default function ClaimPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const { address, isConnected } = useAccount();
-    const { connect } = useConnect();
+    const { connect, connectors } = useConnect();
 
     const [context, setContext] = useState<any>(null);
     const [signature, setSignature] = useState<string | null>(null);
@@ -25,19 +24,29 @@ export default function ClaimPage({ params }: { params: Promise<{ id: string }> 
     const [loadingData, setLoadingData] = useState(true);
     const [dataError, setDataError] = useState("");
 
-    // Initialize Frame SDK
+    // Initialize Frame SDK and auto-connect
     useEffect(() => {
         const load = async () => {
             try {
                 const context = await sdk.context;
                 setContext(context);
                 sdk.actions.ready();
+
+                // Auto-connect wallet via miniapp connector
+                if (!isConnected && connectors.length > 0) {
+                    connect({ connector: connectors[0] });
+                }
             } catch (err) {
                 console.error("SDK Init Error:", err);
                 sdk.actions.ready();
+                // Still try to connect even without SDK context
+                if (!isConnected && connectors.length > 0) {
+                    connect({ connector: connectors[0] });
+                }
             }
         };
         load();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Fetch API Data
@@ -235,7 +244,7 @@ export default function ClaimPage({ params }: { params: Promise<{ id: string }> 
                         <p className="text-white font-medium">Context Not Found</p>
                     </div>
                 ) : !isConnected ? (
-                    <button onClick={() => connect({ connector: injected() })} className="btn-primary w-full py-3 bg-white/5 hover:bg-white/10 border-white/10">
+                    <button onClick={() => connect({ connector: connectors[0] })} className="btn-primary w-full py-3 bg-white/5 hover:bg-white/10 border-white/10">
                         Connect Wallet to Claim
                     </button>
                 ) : (

@@ -2,25 +2,59 @@ import type { Metadata } from "next";
 import { Providers } from "./providers";
 import "./globals.css";
 
+const APP_URL = process.env.NEXT_PUBLIC_URL || "https://basekaget.tech";
+
+// Mini App embed JSON for fc:miniapp meta tag
+const miniAppEmbed = JSON.stringify({
+  version: "1",
+  imageUrl: `${APP_URL}/api/og`,
+  button: {
+    title: "🎁 Launch App",
+    action: {
+      type: "launch_miniapp",
+      name: "Base Kaget",
+      url: APP_URL,
+      splashImageUrl: `${APP_URL}/api/splash`,
+      splashBackgroundColor: "#0B0C10",
+    },
+  },
+});
+
+// Backward-compatible fc:frame embed JSON
+const frameEmbed = JSON.stringify({
+  version: "1",
+  imageUrl: `${APP_URL}/api/og`,
+  button: {
+    title: "🎁 Launch App",
+    action: {
+      type: "launch_frame",
+      name: "Base Kaget",
+      url: APP_URL,
+      splashImageUrl: `${APP_URL}/api/splash`,
+      splashBackgroundColor: "#0B0C10",
+    },
+  },
+});
+
 export const metadata: Metadata = {
   title: "Base Kaget - Instant Giveaways on Base",
   description: "Create and claim instant giveaways on Base. Fast, fair, first-come-first-serve rewards. Powered by Farcaster.",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_URL || 'https://basekaget.tech'),
+  metadataBase: new URL(APP_URL),
   applicationName: "Base Kaget",
   keywords: ["Base", "Giveaway", "Farcaster", "Crypto", "Airdrop", "Web3"],
   authors: [{ name: "Base Kaget" }],
   openGraph: {
     title: "Base Kaget - Instant Giveaways",
     description: "Create and claim instant giveaways on Base. Fast, fair, first-come-first-serve! 🎁",
-    url: "https://basekaget.tech",
+    url: APP_URL,
     siteName: "Base Kaget",
     images: [
       {
-        url: "https://basekaget.tech/preview.svg",
+        url: `${APP_URL}/api/og`,
         width: 1200,
         height: 630,
         alt: "Base Kaget - Instant Giveaways on Base",
-        type: "image/svg+xml",
+        type: "image/png",
       },
     ],
     locale: "en_US",
@@ -30,16 +64,12 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Base Kaget - Instant Giveaways",
     description: "Create and claim instant giveaways on Base 🎁",
-    images: ["https://basekaget.tech/preview.svg"],
+    images: [`${APP_URL}/api/og`],
     creator: "@basekaget",
   },
   other: {
-    "fc:frame": "vNext",
-    "fc:frame:image": "https://basekaget.tech/preview.svg",
-    "fc:frame:image:aspect_ratio": "1.91:1",
-    "fc:frame:button:1": "🎁 Launch App",
-    "fc:frame:button:1:action": "link",
-    "fc:frame:button:1:target": "https://basekaget.tech",
+    "fc:miniapp": miniAppEmbed,
+    "fc:frame": frameEmbed,
   },
 };
 

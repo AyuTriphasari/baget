@@ -4,15 +4,41 @@
         "payload": "eyJkb21haW4iOiJiYXNla2FnZXQudGVjaCJ9",
         "signature": "jd5yNHzEymuhBNulMOWyjo4BiWWbk5yDKEIjNcI4tYk1z/doBtbJSUJDgT7bi9+Rb1xLYjNk/QWKGaAqEKGtJhs="
     },
+    "miniapp": {
+        "version": "1",
+        "name": "Base Kaget",
+        "iconUrl": "https://basekaget.tech/api/icon",
+        "homeUrl": "https://basekaget.tech",
+        "splashImageUrl": "https://basekaget.tech/api/splash",
+        "splashBackgroundColor": "#0B0C10",
+        "subtitle": "Instant Giveaways on Base",
+        "description": "Create and claim instant giveaways on Base. Fast, fair, first-come-first-serve rewards.",
+        "primaryCategory": "finance",
+        "tags": [
+            "giveaway",
+            "base",
+            "rewards",
+            "crypto"
+        ],
+        "heroImageUrl": "https://basekaget.tech/api/og",
+        "ogTitle": "Base Kaget",
+        "ogDescription": "Create and claim instant giveaways on Base. Fast and fair!",
+        "ogImageUrl": "https://basekaget.tech/api/og",
+        "requiredChains": [
+            "eip155:8453"
+        ],
+        "requiredCapabilities": [
+            "wallet.getEthereumProvider"
+        ]
+    },
     "frame": {
         "version": "1",
         "name": "Base Kaget",
-        "iconUrl": "https://basekaget.tech/icon.svg",
+        "iconUrl": "https://basekaget.tech/api/icon",
         "homeUrl": "https://basekaget.tech",
-        "imageUrl": "https://basekaget.tech/preview.svg",
-        "buttonTitle": "Launch Kaget",
-        "splashImageUrl": "https://basekaget.tech/preview.svg",
-        "splashBackgroundColor": "#0B0C10",
-        "webhookUrl": "https://basekaget.tech/api/webhook"
+        "imageUrl": "https://basekaget.tech/api/og",
+        "buttonTitle": "🎁 Launch Kaget",
+        "splashImageUrl": "https://basekaget.tech/api/splash",
+        "splashBackgroundColor": "#0B0C10"
     }
 }

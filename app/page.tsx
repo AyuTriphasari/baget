@@ -28,16 +28,22 @@ export default function Home() {
         const ctx = await sdk.context;
         setContext(ctx);
 
-        // Auto-connect if not connected and we have a connector
+        // Auto-connect: the miniapp connector handles this automatically
+        // but we trigger connect if not yet connected
         if (!isConnected && connectors.length > 0) {
           connect({ connector: connectors[0] });
         }
       } catch (e) {
         console.error("Failed to load context", e);
+        // Fallback: still try to connect even without SDK context
+        if (!isConnected && connectors.length > 0) {
+          connect({ connector: connectors[0] });
+        }
       }
     };
     load();
-  }, [isConnected, connectors, connect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Contract Write
   const { writeContractAsync, isPending } = useWriteContract();
