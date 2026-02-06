@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
+import { syncGiveawayWinners } from "../claim/record/route";
 
 // Cache for contract status (10 seconds TTL)
 const statusCache = new Map<string, { data: any; timestamp: number }>();
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
         if (!creator || !isValidAddress(creator)) {
             return NextResponse.json({ error: "Invalid creator address" }, { status: 400 });
         }
-        if (!token || !isValidAddress(token) && token !== "0x0000000000000000000000000000000000000000") {
+        if (!token || (!isValidAddress(token) && token !== "0x0000000000000000000000000000000000000000")) {
             return NextResponse.json({ error: "Invalid token address" }, { status: 400 });
         }
         if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
@@ -131,7 +132,7 @@ export async function GET(req: NextRequest) {
 
     try {
         if (id) {
-            const giveaway = await prisma.giveaway.findUnique({
+            let giveaway = await prisma.giveaway.findUnique({
                 where: { id },
                 include: { winners: true },
             });
@@ -139,10 +140,24 @@ export async function GET(req: NextRequest) {
 
             // Get real status from contract (skip cache if fresh=1)
             const contractStatus = await getGiveawayStatus(id, fresh);
+            const contractClaimedCount = contractStatus?.claimedCount ?? giveaway.winners.length;
+
+            // Auto-sync: if contract has more claims than DB winners, backfill from on-chain events
+            if (contractClaimedCount > giveaway.winners.length) {
+                const synced = await syncGiveawayWinners(id);
+                if (synced > 0) {
+                    // Re-fetch giveaway with updated winners
+                    giveaway = await prisma.giveaway.findUnique({
+                        where: { id },
+                        include: { winners: true },
+                    }) as typeof giveaway;
+                    if (!giveaway) return NextResponse.json({ error: "Not found" }, { status: 404 });
+                }
+            }
 
             return NextResponse.json({
                 ...giveaway,
-                claimedCount: contractStatus?.claimedCount ?? giveaway.winners.length,
+                claimedCount: contractClaimedCount,
                 isActive: contractStatus?.isActive ?? true,
             });
         }

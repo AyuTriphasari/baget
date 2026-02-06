@@ -20,6 +20,17 @@ export const BaseKagetABI = [
         ]
     },
     {
+        name: "RewardClaimed",
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { indexed: true, internalType: "uint256", name: "giveawayId", type: "uint256" },
+            { indexed: true, internalType: "uint256", name: "fid", type: "uint256" },
+            { indexed: true, internalType: "address", name: "claimer", type: "address" },
+            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" }
+        ]
+    },
+    {
         inputs: [
             { internalType: "uint256", name: "giveawayId", type: "uint256" },
             { internalType: "uint256", name: "maxClaims", type: "uint256" },

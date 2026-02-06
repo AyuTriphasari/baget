@@ -15,8 +15,11 @@ export default function DashboardPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState("");
 
+    // Track which giveaway is being processed (by id)
+    const [processingId, setProcessingId] = useState<string | null>(null);
+
     // Contract Write for Withdraw
-    const { writeContractAsync, isPending: isTxPending } = useWriteContract();
+    const { writeContractAsync } = useWriteContract();
     const [txHash, setTxHash] = useState<`0x${string}` | undefined>(undefined);
     const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
 
@@ -47,6 +50,7 @@ export default function DashboardPage() {
     // Refetch after successful withdraw/cancel
     useEffect(() => {
         if (isSuccess) {
+            setProcessingId(null);
             // Small delay to let blockchain state propagate
             const timer = setTimeout(() => fetchMyGiveaways(), 2000);
             return () => clearTimeout(timer);
@@ -66,6 +70,7 @@ export default function DashboardPage() {
 
     const handleWithdraw = async (uuid: string, isExpired: boolean) => {
         try {
+            setProcessingId(uuid);
             let idBigInt: bigint;
             if (uuid.includes("-")) {
                 idBigInt = BigInt("0x" + uuid.replace(/-/g, ""));
@@ -85,6 +90,7 @@ export default function DashboardPage() {
             setTxHash(hash);
         } catch (e: any) {
             console.error(e);
+            setProcessingId(null);
             const action = isExpired ? "Withdraw" : "Cancel";
             alert(`${action} failed: ` + (e.message || "Unknown error"));
         }
@@ -218,20 +224,20 @@ export default function DashboardPage() {
                                     {canCancel && (
                                         <button
                                             onClick={() => handleWithdraw(g.id, false)}
-                                            disabled={isTxPending || isConfirming}
+                                            disabled={processingId !== null}
                                             className="flex-1 py-2.5 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
                                         >
-                                            {isTxPending || isConfirming ? "Processing..." : "Cancel & Refund"}
+                                            {processingId === g.id ? (isConfirming ? "Confirming..." : "Check Wallet...") : "Cancel & Refund"}
                                         </button>
                                     )}
 
                                     {canWithdraw && (
                                         <button
                                             onClick={() => handleWithdraw(g.id, true)}
-                                            disabled={isTxPending || isConfirming}
+                                            disabled={processingId !== null}
                                             className="flex-1 py-2.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
                                         >
-                                            {isTxPending || isConfirming ? "Processing..." : "Withdraw"}
+                                            {processingId === g.id ? (isConfirming ? "Confirming..." : "Check Wallet...") : "Withdraw"}
                                         </button>
                                     )}
                                 </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use, useCallback } from "react";
+import { useEffect, useState, use, useCallback, useRef } from "react";
 import sdk from "@farcaster/miniapp-sdk";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useConnect } from "wagmi";
 import { formatEther } from "viem";
@@ -93,12 +93,19 @@ export default function ClaimPage({ params }: { params: Promise<{ id: string }> 
     const { data: hash, writeContract, isPending: isTxPending } = useWriteContract();
     const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
-    // Handle Success
+    // Ref to prevent double-firing of record call
+    const recordedRef = useRef(false);
+
+    // Handle Success - record claim with retry logic
     useEffect(() => {
-        if (isSuccess && giveaway && address && fid && !hasClaimed) {
-            const recordClaim = async () => {
+        if (isSuccess && giveaway && address && fid && !hasClaimed && !recordedRef.current) {
+            recordedRef.current = true;
+            const recordClaim = async (attempt = 1): Promise<void> => {
+                const MAX_RETRIES = 3;
+                const RETRY_DELAY = 2000; // 2s between retries
+
                 try {
-                    await fetch("/api/claim/record", {
+                    const res = await fetch("/api/claim/record", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
@@ -108,15 +115,30 @@ export default function ClaimPage({ params }: { params: Promise<{ id: string }> 
                             amount: giveaway.rewardPerClaim
                         })
                     });
+
+                    if (!res.ok && attempt < MAX_RETRIES) {
+                        console.warn(`Record attempt ${attempt} failed (${res.status}), retrying...`);
+                        await new Promise(r => setTimeout(r, RETRY_DELAY * attempt));
+                        return recordClaim(attempt + 1);
+                    }
+
                     // Refetch data with fresh contract data (bypass cache)
                     fetchGiveawayData(true);
                 } catch (e) {
-                    console.error("Failed to record claim", e);
+                    console.error(`Record attempt ${attempt} error:`, e);
+                    if (attempt < MAX_RETRIES) {
+                        await new Promise(r => setTimeout(r, RETRY_DELAY * attempt));
+                        return recordClaim(attempt + 1);
+                    }
+                    // After all retries fail, still refetch - the auto-sync on the API
+                    // will pick up the missing record from on-chain events
+                    console.error("All record retries failed. Auto-sync will backfill.");
+                    fetchGiveawayData(true);
                 }
             };
             recordClaim();
         }
-    }, [isSuccess]);
+    }, [isSuccess, giveaway, address, fid, hasClaimed, hash, fetchGiveawayData]);
 
     const handleClaim = async () => {
         if (!context || !address || !giveaway) return;
@@ -223,8 +245,8 @@ export default function ClaimPage({ params }: { params: Promise<{ id: string }> 
             <div className="glass-card overflow-hidden">
                 {/* Status Banner */}
                 <div className={`px-5 py-3 flex items-center justify-between ${isClaimable ? "bg-blue-500/10" :
-                        hasClaimed ? "bg-green-500/10" :
-                            "bg-subtle"
+                    hasClaimed ? "bg-green-500/10" :
+                        "bg-subtle"
                     }`}>
                     <div className="flex items-center gap-2">
                         <div className={`w-2 h-2 rounded-full ${isClaimable ? "bg-blue-400 animate-pulse" : hasClaimed ? "bg-green-400" : "bg-gray-500"}`} />
