@@ -93,7 +93,7 @@ export default function FindPage() {
                         const now = Date.now() / 1000;
                         const isExpired = Number(g.expiresAt) > 0 && now > Number(g.expiresAt);
                         const isFullyClaimed = Number(g.claimedCount) >= Number(g.maxClaims);
-                        const isEnded = isExpired || isFullyClaimed; // We assume active if in DB for now
+                        const isEnded = !g.isActive || isExpired || isFullyClaimed;
 
                         return (
                             <div
