@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt, useSwitchChain, useWalletClient } from "wagmi";
+import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from "wagmi";
 import { parseUnits, formatUnits, erc20Abi, createPublicClient, http } from "viem";
 import { base } from "viem/chains";
 import { BaseKagetABI } from "./abi/BaseKaget";
@@ -64,9 +64,8 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Contract Write
+  // Contract Write — with retry helper for Farcaster connector race condition
   const { writeContractAsync, isPending } = useWriteContract();
-  const { data: walletClient } = useWalletClient();
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>(undefined);
   const { isLoading: isConfirmingTx, isSuccess: isConfirmedTx } = useWaitForTransactionReceipt({ hash: txHash });
 
@@ -162,19 +161,27 @@ export default function Home() {
 
     setApproveStep("approving");
     try {
-      // Use walletClient directly to bypass wagmi connector.getChainId() race condition
-      if (!walletClient) {
-        toast("Wallet not ready, please try again");
-        setApproveStep("idle");
-        return;
+      // Retry up to 3 times to handle Farcaster connector race condition
+      let hash: `0x${string}` | undefined;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          hash = await writeContractAsync({
+            address: tokenAddress as `0x${string}`,
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [CONTRACT_ADDRESS, totalCost],
+          });
+          break; // success
+        } catch (retryErr: any) {
+          if (attempt < 3 && retryErr?.message?.includes("getChainId")) {
+            console.warn(`Approve attempt ${attempt} hit connector race, retrying...`);
+            await new Promise(r => setTimeout(r, 500 * attempt));
+            continue;
+          }
+          throw retryErr; // not retriable or last attempt
+        }
       }
-      const hash = await walletClient.writeContract({
-        address: tokenAddress as `0x${string}`,
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [CONTRACT_ADDRESS, totalCost],
-        chain: base,
-      });
+      if (!hash) throw new Error("Approval failed after retries");
       // Wait for approval tx to be mined
       await publicClient.waitForTransactionReceipt({ hash });
       setApproveStep("approved");
@@ -230,30 +237,55 @@ export default function Home() {
       const totalCost = rewardWei * BigInt(maxClaims);
       const durationSecs = BigInt(Math.floor(Number(duration) * 3600));
 
-      let hash: `0x${string}`;
+      let hash: `0x${string}` | undefined;
 
       if (tokenType === "ETH") {
-        // Native ETH giveaway
-        hash = await writeContractAsync({
-          address: CONTRACT_ADDRESS,
-          abi: BaseKagetABI,
-          functionName: "createGiveaway",
-          args: [idBigInt, BigInt(maxClaims), rewardWei, durationSecs],
-          value: totalCost,
-        });
+        // Native ETH giveaway — with retry for Farcaster connector race condition
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            hash = await writeContractAsync({
+              address: CONTRACT_ADDRESS,
+              abi: BaseKagetABI,
+              functionName: "createGiveaway",
+              args: [idBigInt, BigInt(maxClaims), rewardWei, durationSecs],
+              value: totalCost,
+            });
+            break;
+          } catch (retryErr: any) {
+            if (attempt < 3 && retryErr?.message?.includes("getChainId")) {
+              console.warn(`Create attempt ${attempt} hit connector race, retrying...`);
+              await new Promise(r => setTimeout(r, 500 * attempt));
+              continue;
+            }
+            throw retryErr;
+          }
+        }
       } else {
         // ERC20 giveaway — approval must be done first
         if (approveStep !== "approved") {
           toast("Please approve the token first");
           return;
         }
-        hash = await writeContractAsync({
-          address: CONTRACT_ADDRESS,
-          abi: BaseKagetABI,
-          functionName: "createGiveawayERC20",
-          args: [idBigInt, tokenAddress as `0x${string}`, BigInt(maxClaims), rewardWei, durationSecs],
-        });
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            hash = await writeContractAsync({
+              address: CONTRACT_ADDRESS,
+              abi: BaseKagetABI,
+              functionName: "createGiveawayERC20",
+              args: [idBigInt, tokenAddress as `0x${string}`, BigInt(maxClaims), rewardWei, durationSecs],
+            });
+            break;
+          } catch (retryErr: any) {
+            if (attempt < 3 && retryErr?.message?.includes("getChainId")) {
+              console.warn(`Create ERC20 attempt ${attempt} hit connector race, retrying...`);
+              await new Promise(r => setTimeout(r, 500 * attempt));
+              continue;
+            }
+            throw retryErr;
+          }
+        }
       }
+      if (!hash) throw new Error("Transaction failed after retries");
 
       console.log("Transaction sent:", hash);
       setGiveawayId(uuid);
