@@ -1,4 +1,9 @@
 {
+    "accountAssociation": {
+        "header": "eyJmaWQiOjIxMzIyMiwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweDBlMUREYjc3ZDlEYkM3NWQ2MzJDQUVFYmUwRjM5MTFCNDEwYzE4NzUifQ",
+        "payload": "eyJkb21haW4iOiJiYXNla2FnZXQudGVjaCJ9",
+        "signature": "jd5yNHzEymuhBNulMOWyjo4BiWWbk5yDKEIjNcI4tYk1z/doBtbJSUJDgT7bi9+Rb1xLYjNk/QWKGaAqEKGtJhs="
+    },
     "frame": {
         "version": "1",
         "name": "Base Kaget",
