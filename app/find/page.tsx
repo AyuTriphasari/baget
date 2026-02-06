@@ -104,81 +104,81 @@ export default function FindPage() {
                     </div>
                 ) : (
                     <>
-                    {giveaways.map((g) => {
-                        const now = Date.now() / 1000;
-                        const isExpired = Number(g.expiresAt) > 0 && now > Number(g.expiresAt);
-                        const isFullyClaimed = Number(g.claimedCount) >= Number(g.maxClaims);
-                        const isEnded = !g.isActive || isExpired || isFullyClaimed;
-                        const claimPct = Number(g.maxClaims) > 0 ? (Number(g.claimedCount) / Number(g.maxClaims)) * 100 : 0;
+                        {giveaways.map((g) => {
+                            const now = Date.now() / 1000;
+                            const isExpired = Number(g.expiresAt) > 0 && now > Number(g.expiresAt);
+                            const isFullyClaimed = Number(g.claimedCount) >= Number(g.maxClaims);
+                            const isEnded = !g.isActive || isExpired || isFullyClaimed;
+                            const claimPct = Number(g.maxClaims) > 0 ? (Number(g.claimedCount) / Number(g.maxClaims)) * 100 : 0;
 
-                        // Time remaining
-                        let timeLeft = "";
-                        if (!isEnded && Number(g.expiresAt) > 0) {
-                            const secs = Number(g.expiresAt) - now;
-                            if (secs > 3600) timeLeft = `${Math.floor(secs / 3600)}h left`;
-                            else if (secs > 60) timeLeft = `${Math.floor(secs / 60)}m left`;
-                            else timeLeft = `${Math.floor(secs)}s left`;
-                        }
+                            // Time remaining
+                            let timeLeft = "";
+                            if (!isEnded && Number(g.expiresAt) > 0) {
+                                const secs = Number(g.expiresAt) - now;
+                                if (secs > 3600) timeLeft = `${Math.floor(secs / 3600)}h left`;
+                                else if (secs > 60) timeLeft = `${Math.floor(secs / 60)}m left`;
+                                else timeLeft = `${Math.floor(secs)}s left`;
+                            }
 
-                        return (
-                            <div
-                                key={g.id}
-                                onClick={() => router.push(`/baget/${g.id}`)}
-                                className="glass-card p-4 hover:border-blue-500/20 transition-all cursor-pointer group space-y-3"
-                            >
-                                <div className="flex justify-between items-start">
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xl font-bold text-white">{formatUnits(BigInt(g.rewardPerClaim || 0), g.tokenDecimals ?? 18)}</span>
-                                            <span className="text-xs font-bold text-gray-500">{g.tokenSymbol ?? "ETH"}</span>
-                                            <span className="text-gray-600 text-xs">/ person</span>
+                            return (
+                                <div
+                                    key={g.id}
+                                    onClick={() => router.push(`/baget/${g.id}`)}
+                                    className="glass-card p-4 hover:border-blue-500/20 transition-all cursor-pointer group space-y-3"
+                                >
+                                    <div className="flex justify-between items-start">
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xl font-bold text-white">{formatUnits(BigInt(g.rewardPerClaim || 0), g.tokenDecimals ?? 18)}</span>
+                                                <span className="text-xs font-bold text-gray-500">{g.tokenSymbol ?? "ETH"}</span>
+                                                <span className="text-gray-600 text-xs">/ person</span>
+                                            </div>
+                                            <p className="text-gray-600 text-xs font-mono">
+                                                by {g.creator?.slice(0, 6)}…{g.creator?.slice(-4)}
+                                            </p>
                                         </div>
-                                        <p className="text-gray-600 text-xs font-mono">
-                                            by {g.creator?.slice(0, 6)}…{g.creator?.slice(-4)}
-                                        </p>
+                                        <div className="flex flex-col items-end gap-1">
+                                            <span className={`px-2.5 py-1 text-[10px] rounded-lg font-bold uppercase tracking-wider ${isEnded ? "badge-ended" : "badge-active"}`}>
+                                                {isFullyClaimed ? "Full" : isExpired ? "Expired" : isEnded ? "Ended" : "Live"}
+                                            </span>
+                                            {timeLeft && (
+                                                <span className="text-[10px] text-gray-600 font-mono">{timeLeft}</span>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="flex flex-col items-end gap-1">
-                                        <span className={`px-2.5 py-1 text-[10px] rounded-lg font-bold uppercase tracking-wider ${isEnded ? "badge-ended" : "badge-active"}`}>
-                                            {isFullyClaimed ? "Full" : isExpired ? "Expired" : isEnded ? "Ended" : "Live"}
-                                        </span>
-                                        {timeLeft && (
-                                            <span className="text-[10px] text-gray-600 font-mono">{timeLeft}</span>
-                                        )}
-                                    </div>
-                                </div>
 
-                                {/* Progress bar */}
-                                <div className="space-y-1.5">
-                                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                                        <div
-                                            className={`h-full rounded-full transition-all duration-500 ${isEnded ? "bg-gray-600" : claimPct > 80 ? "bg-orange-500" : "bg-blue-500"}`}
-                                            style={{ width: `${Math.min(claimPct, 100)}%` }}
-                                        />
-                                    </div>
-                                    <div className="flex justify-between text-[10px] text-gray-600">
-                                        <span>{g.claimedCount}/{g.maxClaims} claimed</span>
-                                        <span className="text-gray-500 group-hover:text-blue-400 transition-colors flex items-center gap-1">
-                                            View →
-                                        </span>
+                                    {/* Progress bar */}
+                                    <div className="space-y-1.5">
+                                        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full transition-all duration-500 ${isEnded ? "bg-gray-600" : claimPct > 80 ? "bg-orange-500" : "bg-blue-500"}`}
+                                                style={{ width: `${Math.min(claimPct, 100)}%` }}
+                                            />
+                                        </div>
+                                        <div className="flex justify-between text-[10px] text-gray-600">
+                                            <span>{g.claimedCount}/{g.maxClaims} claimed</span>
+                                            <span className="text-gray-500 group-hover:text-blue-400 transition-colors flex items-center gap-1">
+                                                View →
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        );
-                    })}
-                    {nextCursor && (
-                        <button
-                            onClick={() => fetchGiveaways(false, nextCursor)}
-                            disabled={isLoadingMore}
-                            className="w-full py-3 glass-card text-center text-sm font-bold text-gray-400 hover:text-white transition-colors"
-                        >
-                            {isLoadingMore ? (
-                                <span className="flex items-center justify-center gap-2">
-                                    <div className="w-4 h-4 border-2 border-gray-500 border-t-white rounded-full animate-spin" />
-                                    Loading...
-                                </span>
-                            ) : "Load More"}
-                        </button>
-                    )}
+                            );
+                        })}
+                        {nextCursor && (
+                            <button
+                                onClick={() => fetchGiveaways(false, nextCursor)}
+                                disabled={isLoadingMore}
+                                className="w-full py-3 glass-card text-center text-sm font-bold text-gray-400 hover:text-white transition-colors"
+                            >
+                                {isLoadingMore ? (
+                                    <span className="flex items-center justify-center gap-2">
+                                        <div className="w-4 h-4 border-2 border-gray-500 border-t-white rounded-full animate-spin" />
+                                        Loading...
+                                    </span>
+                                ) : "Load More"}
+                            </button>
+                        )}
                     </>
                 )}
             </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from "wagmi";
+import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt, useSwitchChain, useWalletClient } from "wagmi";
 import { parseUnits, formatUnits, erc20Abi, createPublicClient, http } from "viem";
 import { base } from "viem/chains";
 import { BaseKagetABI } from "./abi/BaseKaget";
@@ -66,6 +66,7 @@ export default function Home() {
 
   // Contract Write
   const { writeContractAsync, isPending } = useWriteContract();
+  const { data: walletClient } = useWalletClient();
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>(undefined);
   const { isLoading: isConfirmingTx, isSuccess: isConfirmedTx } = useWaitForTransactionReceipt({ hash: txHash });
 
@@ -161,11 +162,18 @@ export default function Home() {
 
     setApproveStep("approving");
     try {
-      const hash = await writeContractAsync({
+      // Use walletClient directly to bypass wagmi connector.getChainId() race condition
+      if (!walletClient) {
+        toast("Wallet not ready, please try again");
+        setApproveStep("idle");
+        return;
+      }
+      const hash = await walletClient.writeContract({
         address: tokenAddress as `0x${string}`,
         abi: erc20Abi,
         functionName: "approve",
         args: [CONTRACT_ADDRESS, totalCost],
+        chain: base,
       });
       // Wait for approval tx to be mined
       await publicClient.waitForTransactionReceipt({ hash });

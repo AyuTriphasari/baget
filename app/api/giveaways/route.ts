@@ -219,27 +219,12 @@ export async function GET(req: NextRequest) {
 
         const now = Math.floor(Date.now() / 1000);
 
-        // Build where clause based on tab
-        let where: any = {};
-        if (tab === "active") {
-            // Active: not expired AND not fully claimed
-            where = {
-                expiresAt: { gt: now },
-            };
-        } else if (tab === "ended") {
-            // Ended: expired OR will be checked after fetch
-            where = {
-                OR: [
-                    { expiresAt: { lte: now, gt: 0 } },
-                    // We can't easily filter "fully claimed" in Prisma without raw SQL,
-                    // so we'll fetch and filter
-                ],
-            };
-        }
+        // Fetch more than needed so we can post-filter by actual status
+        // (DB can't know if contract deactivated or if _count.winners >= maxClaims)
+        const fetchSize = tab ? limit * 3 : limit + 1;
 
         const giveaways = await prisma.giveaway.findMany({
-            where,
-            take: limit + 1,
+            take: fetchSize,
             orderBy: { createdAt: "desc" },
             ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
             include: {
@@ -249,13 +234,9 @@ export async function GET(req: NextRequest) {
             }
         });
 
-        const hasMore = giveaways.length > limit;
-        const items = hasMore ? giveaways.slice(0, limit) : giveaways;
-        const nextCursor = hasMore ? items[items.length - 1].id : null;
-
         // Get contract status — skip RPC for clearly ended giveaways
         const giveawaysWithStatus = await Promise.all(
-            items.map(async (g: any) => {
+            giveaways.map(async (g: any) => {
                 const isExpiredByTime = Number(g.expiresAt) > 0 && now > Number(g.expiresAt);
                 const isFullyClaimed = g._count.winners >= g.maxClaims;
 
@@ -263,7 +244,7 @@ export async function GET(req: NextRequest) {
                     return {
                         ...g,
                         claimedCount: g._count.winners,
-                        isActive: !isExpiredByTime && !isFullyClaimed,
+                        isActive: false,
                     };
                 }
 
@@ -276,7 +257,21 @@ export async function GET(req: NextRequest) {
             })
         );
 
-        return NextResponse.json({ items: giveawaysWithStatus, nextCursor });
+        // Post-filter by tab
+        let filtered = giveawaysWithStatus;
+        if (tab === "active") {
+            filtered = giveawaysWithStatus.filter(g => g.isActive && !(Number(g.expiresAt) > 0 && now > Number(g.expiresAt)) && Number(g.claimedCount) < Number(g.maxClaims));
+        } else if (tab === "ended") {
+            filtered = giveawaysWithStatus.filter(g => !g.isActive || (Number(g.expiresAt) > 0 && now > Number(g.expiresAt)) || Number(g.claimedCount) >= Number(g.maxClaims));
+        }
+
+        const items = filtered.slice(0, limit);
+        // nextCursor: use the last item from the *unfiltered* fetch if we have more in DB
+        const lastFetched = giveaways[giveaways.length - 1];
+        const hasMore = filtered.length > limit || giveaways.length >= fetchSize;
+        const nextCursor = hasMore && items.length > 0 ? items[items.length - 1].id : null;
+
+        return NextResponse.json({ items, nextCursor });
 
     } catch (e: any) {
         console.error("Error fetching giveaways:", e);
