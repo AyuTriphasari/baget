@@ -3,20 +3,24 @@ import { Providers } from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Base Kaget - Farcaster Giveaway",
-  description: "Create and claim instant giveaways on Base. Fast, fair, first-come-first-serve rewards.",
+  title: "Base Kaget - Instant Giveaways on Base",
+  description: "Create and claim instant giveaways on Base. Fast, fair, first-come-first-serve rewards. Powered by Farcaster.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_URL || 'https://basekaget.tech'),
+  applicationName: "Base Kaget",
+  keywords: ["Base", "Giveaway", "Farcaster", "Crypto", "Airdrop", "Web3"],
+  authors: [{ name: "Base Kaget" }],
   openGraph: {
-    title: "Base Kaget",
-    description: "Create and claim instant giveaways on Base",
+    title: "Base Kaget - Instant Giveaways",
+    description: "Create and claim instant giveaways on Base. Fast, fair, first-come-first-serve! 🎁",
     url: "https://basekaget.tech",
     siteName: "Base Kaget",
     images: [
       {
-        url: "/preview.png",
+        url: "https://basekaget.tech/preview.svg",
         width: 1200,
         height: 630,
-        alt: "Base Kaget - Instant Giveaways",
+        alt: "Base Kaget - Instant Giveaways on Base",
+        type: "image/svg+xml",
       },
     ],
     locale: "en_US",
@@ -24,16 +28,18 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Base Kaget",
-    description: "Create and claim instant giveaways on Base",
-    images: ["/preview.png"],
+    title: "Base Kaget - Instant Giveaways",
+    description: "Create and claim instant giveaways on Base 🎁",
+    images: ["https://basekaget.tech/preview.svg"],
+    creator: "@basekaget",
   },
   other: {
     "fc:frame": "vNext",
-    "fc:frame:image": `${process.env.NEXT_PUBLIC_URL || 'https://basekaget.tech'}/preview.png`,
-    "fc:frame:button:1": "Launch App",
+    "fc:frame:image": "https://basekaget.tech/preview.svg",
+    "fc:frame:image:aspect_ratio": "1.91:1",
+    "fc:frame:button:1": "🎁 Launch App",
     "fc:frame:button:1:action": "link",
-    "fc:frame:button:1:target": `${process.env.NEXT_PUBLIC_URL || 'https://basekaget.tech'}`,
+    "fc:frame:button:1:target": "https://basekaget.tech",
   },
 };
 
