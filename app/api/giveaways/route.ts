@@ -165,9 +165,14 @@ export async function GET(req: NextRequest) {
         }
 
         if (creator) {
+            const limit = Math.min(Number(searchParams.get("limit")) || 20, 50);
+            const cursor = searchParams.get("cursor"); // giveaway id for cursor pagination
+
             const giveaways = await prisma.giveaway.findMany({
                 where: { creator },
                 orderBy: { createdAt: "desc" },
+                take: limit + 1, // fetch one extra to check if there's more
+                ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
                 include: {
                     _count: {
                         select: { winners: true }
@@ -175,9 +180,26 @@ export async function GET(req: NextRequest) {
                 }
             });
 
-            // Get contract status for each giveaway
+            const hasMore = giveaways.length > limit;
+            const items = hasMore ? giveaways.slice(0, limit) : giveaways;
+            const nextCursor = hasMore ? items[items.length - 1].id : null;
+
+            // Get contract status — skip RPC for clearly ended giveaways
+            const now = Math.floor(Date.now() / 1000);
             const giveawaysWithStatus = await Promise.all(
-                giveaways.map(async (g: any) => {
+                items.map(async (g: any) => {
+                    const isExpiredByTime = Number(g.expiresAt) > 0 && now > Number(g.expiresAt);
+                    const isFullyClaimed = g._count.winners >= g.maxClaims;
+
+                    // Only call RPC for potentially active giveaways
+                    if (isExpiredByTime || isFullyClaimed) {
+                        return {
+                            ...g,
+                            claimedCount: g._count.winners,
+                            isActive: !isExpiredByTime && !isFullyClaimed,
+                        };
+                    }
+
                     const contractStatus = await getGiveawayStatus(g.id);
                     return {
                         ...g,
@@ -187,13 +209,39 @@ export async function GET(req: NextRequest) {
                 })
             );
 
-            return NextResponse.json(giveawaysWithStatus);
+            return NextResponse.json({ items: giveawaysWithStatus, nextCursor });
         }
 
-        // Default: Latest for Find page
+        // Default: Latest for Find page — with pagination + tab filter
+        const limit = Math.min(Number(searchParams.get("limit")) || 15, 50);
+        const cursor = searchParams.get("cursor");
+        const tab = searchParams.get("tab"); // "active" | "ended" | null
+
+        const now = Math.floor(Date.now() / 1000);
+
+        // Build where clause based on tab
+        let where: any = {};
+        if (tab === "active") {
+            // Active: not expired AND not fully claimed
+            where = {
+                expiresAt: { gt: now },
+            };
+        } else if (tab === "ended") {
+            // Ended: expired OR will be checked after fetch
+            where = {
+                OR: [
+                    { expiresAt: { lte: now, gt: 0 } },
+                    // We can't easily filter "fully claimed" in Prisma without raw SQL,
+                    // so we'll fetch and filter
+                ],
+            };
+        }
+
         const giveaways = await prisma.giveaway.findMany({
-            take: 50,
+            where,
+            take: limit + 1,
             orderBy: { createdAt: "desc" },
+            ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
             include: {
                 _count: {
                     select: { winners: true }
@@ -201,9 +249,24 @@ export async function GET(req: NextRequest) {
             }
         });
 
-        // Get contract status for each giveaway
+        const hasMore = giveaways.length > limit;
+        const items = hasMore ? giveaways.slice(0, limit) : giveaways;
+        const nextCursor = hasMore ? items[items.length - 1].id : null;
+
+        // Get contract status — skip RPC for clearly ended giveaways
         const giveawaysWithStatus = await Promise.all(
-            giveaways.map(async (g: any) => {
+            items.map(async (g: any) => {
+                const isExpiredByTime = Number(g.expiresAt) > 0 && now > Number(g.expiresAt);
+                const isFullyClaimed = g._count.winners >= g.maxClaims;
+
+                if (isExpiredByTime || isFullyClaimed) {
+                    return {
+                        ...g,
+                        claimedCount: g._count.winners,
+                        isActive: !isExpiredByTime && !isFullyClaimed,
+                    };
+                }
+
                 const contractStatus = await getGiveawayStatus(g.id);
                 return {
                     ...g,
@@ -213,7 +276,7 @@ export async function GET(req: NextRequest) {
             })
         );
 
-        return NextResponse.json(giveawaysWithStatus);
+        return NextResponse.json({ items: giveawaysWithStatus, nextCursor });
 
     } catch (e: any) {
         console.error("Error fetching giveaways:", e);

@@ -25,20 +25,31 @@ export default function DashboardPage() {
     const [txHash, setTxHash] = useState<`0x${string}` | undefined>(undefined);
     const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
 
-    const fetchMyGiveaways = useCallback(async () => {
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [nextCursor, setNextCursor] = useState<string | null>(null);
+
+    const fetchMyGiveaways = useCallback(async (cursor?: string) => {
         if (!address) return;
-        setIsLoading(true);
-        setError("");
+        if (!cursor) { setIsLoading(true); setError(""); }
+        else setIsLoadingMore(true);
         try {
-            const res = await fetch(`/api/giveaways?creator=${address}`);
+            const params = new URLSearchParams({ creator: address, limit: "15" });
+            if (cursor) params.set("cursor", cursor);
+            const res = await fetch(`/api/giveaways?${params}`);
             if (!res.ok) throw new Error("Failed to fetch giveaways");
             const data = await res.json();
-            setGiveaways(data);
+            if (cursor) {
+                setGiveaways(prev => [...prev, ...data.items]);
+            } else {
+                setGiveaways(data.items);
+            }
+            setNextCursor(data.nextCursor);
         } catch (e: any) {
             console.error("Error fetching dashboard:", e);
             setError(e.message || "Failed to load giveaways. Please try again.");
         } finally {
             setIsLoading(false);
+            setIsLoadingMore(false);
         }
     }, [address]);
 
@@ -262,6 +273,20 @@ export default function DashboardPage() {
                             </div>
                         );
                     })
+                )}
+                {nextCursor && !isLoading && (
+                    <button
+                        onClick={() => fetchMyGiveaways(nextCursor)}
+                        disabled={isLoadingMore}
+                        className="w-full py-3 glass-card text-center text-sm font-bold text-gray-400 hover:text-white transition-colors"
+                    >
+                        {isLoadingMore ? (
+                            <span className="flex items-center justify-center gap-2">
+                                <div className="w-4 h-4 border-2 border-gray-500 border-t-white rounded-full animate-spin" />
+                                Loading...
+                            </span>
+                        ) : "Load More"}
+                    </button>
                 )}
             </div>
         </div>

@@ -9,25 +9,39 @@ export default function FindPage() {
     const [giveaways, setGiveaways] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [nextCursor, setNextCursor] = useState<string | null>(null);
+    const [tab, setTab] = useState<"active" | "ended">("active");
 
-    const fetchGiveaways = useCallback(async (showLoading = true) => {
+    const fetchGiveaways = useCallback(async (showLoading = true, cursor?: string) => {
         if (showLoading) setIsLoading(true);
-        else setIsRefreshing(true);
+        else if (!cursor) setIsRefreshing(true);
+        else setIsLoadingMore(true);
         try {
-            const res = await fetch("/api/giveaways");
+            const params = new URLSearchParams({ tab, limit: "15" });
+            if (cursor) params.set("cursor", cursor);
+            const res = await fetch(`/api/giveaways?${params}`);
             if (!res.ok) throw new Error("Failed to fetch");
             const data = await res.json();
-            setGiveaways(data);
+            if (cursor) {
+                setGiveaways(prev => [...prev, ...data.items]);
+            } else {
+                setGiveaways(data.items);
+            }
+            setNextCursor(data.nextCursor);
         } catch (e) {
             console.error("Error fetching giveaways:", e);
         } finally {
             setIsLoading(false);
             setIsRefreshing(false);
+            setIsLoadingMore(false);
         }
-    }, []);
+    }, [tab]);
 
-    // Fetch on mount
+    // Fetch on mount and tab change
     useEffect(() => {
+        setGiveaways([]);
+        setNextCursor(null);
         fetchGiveaways();
     }, [fetchGiveaways]);
 
@@ -42,17 +56,6 @@ export default function FindPage() {
         return () => document.removeEventListener("visibilitychange", handleVisibility);
     }, [fetchGiveaways]);
 
-    const activeGiveaways = giveaways.filter((g) => {
-        const now = Date.now() / 1000;
-        const isExpired = Number(g.expiresAt) > 0 && now > Number(g.expiresAt);
-        const isFullyClaimed = Number(g.claimedCount) >= Number(g.maxClaims);
-        return g.isActive && !isExpired && !isFullyClaimed;
-    });
-    const endedGiveaways = giveaways.filter((g) => !activeGiveaways.includes(g));
-
-    const [tab, setTab] = useState<"active" | "ended">("active");
-    const displayList = tab === "active" ? activeGiveaways : endedGiveaways;
-
     return (
         <div className="w-full space-y-5 pt-4 animate-fade-up">
             {/* Header */}
@@ -63,20 +66,6 @@ export default function FindPage() {
                 <p className="text-gray-500 text-sm">Discover and claim active rewards</p>
             </div>
 
-            {/* Stats Row */}
-            {!isLoading && (
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="glass-card p-3 text-center">
-                        <p className="text-2xl font-bold text-white">{activeGiveaways.length}</p>
-                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Active</p>
-                    </div>
-                    <div className="glass-card p-3 text-center">
-                        <p className="text-2xl font-bold text-white">{giveaways.length}</p>
-                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Total</p>
-                    </div>
-                </div>
-            )}
-
             {/* Tabs + Refresh */}
             <div className="flex items-center justify-between">
                 <div className="flex gap-1 bg-white/5 p-1 rounded-xl">
@@ -84,13 +73,13 @@ export default function FindPage() {
                         onClick={() => setTab("active")}
                         className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${tab === "active" ? "bg-blue-500 text-white shadow-lg shadow-blue-500/20" : "text-gray-500 hover:text-gray-300"}`}
                     >
-                        Active ({activeGiveaways.length})
+                        Active
                     </button>
                     <button
                         onClick={() => setTab("ended")}
                         className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${tab === "ended" ? "bg-white/10 text-white" : "text-gray-500 hover:text-gray-300"}`}
                     >
-                        Ended ({endedGiveaways.length})
+                        Ended
                     </button>
                 </div>
                 <button onClick={() => fetchGiveaways(false)} disabled={isRefreshing} className="p-2 rounded-lg hover:bg-white/5 text-gray-500 hover:text-white transition-colors disabled:opacity-50">
@@ -106,7 +95,7 @@ export default function FindPage() {
                     [1, 2, 3].map(i => (
                         <div key={i} className="skeleton h-28 w-full"></div>
                     ))
-                ) : displayList.length === 0 ? (
+                ) : giveaways.length === 0 ? (
                     <div className="glass-card p-10 text-center space-y-3">
                         <div className="text-4xl">{tab === "active" ? "🔍" : "📭"}</div>
                         <p className="text-gray-500 text-sm">
@@ -114,7 +103,8 @@ export default function FindPage() {
                         </p>
                     </div>
                 ) : (
-                    displayList.map((g) => {
+                    <>
+                    {giveaways.map((g) => {
                         const now = Date.now() / 1000;
                         const isExpired = Number(g.expiresAt) > 0 && now > Number(g.expiresAt);
                         const isFullyClaimed = Number(g.claimedCount) >= Number(g.maxClaims);
@@ -174,7 +164,22 @@ export default function FindPage() {
                                 </div>
                             </div>
                         );
-                    })
+                    })}
+                    {nextCursor && (
+                        <button
+                            onClick={() => fetchGiveaways(false, nextCursor)}
+                            disabled={isLoadingMore}
+                            className="w-full py-3 glass-card text-center text-sm font-bold text-gray-400 hover:text-white transition-colors"
+                        >
+                            {isLoadingMore ? (
+                                <span className="flex items-center justify-center gap-2">
+                                    <div className="w-4 h-4 border-2 border-gray-500 border-t-white rounded-full animate-spin" />
+                                    Loading...
+                                </span>
+                            ) : "Load More"}
+                        </button>
+                    )}
+                    </>
                 )}
             </div>
         </div>
