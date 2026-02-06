@@ -1,0 +1,46 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Giveaway {
+  id             String   @id // The uint256 ID from contract (stored as string)
+  creator        String
+  token          String
+  amount         String   // stored as string (wei, total amount)
+  rewardPerClaim String   // stored as string (wei)
+  maxClaims      Int
+  expiresAt      Int      // unix timestamp
+  txHash         String?
+  createdAt      DateTime @default(now())
+
+  // Relations
+  winners     Winner[]
+
+  // Indexes for better query performance
+  @@index([creator])
+  @@index([createdAt])
+}
+
+model Winner {
+  id          Int      @id @default(autoincrement())
+  giveawayId  String
+  fid         String
+  username    String?
+  avatarUrl   String?
+  txHash      String
+  amount      String   // stored as string (wei)
+  createdAt   DateTime @default(now())
+
+  giveaway    Giveaway @relation(fields: [giveawayId], references: [id])
+
+  // Unique constraint to prevent duplicate claims
+  @@unique([giveawayId, fid])
+  // Indexes for better query performance
+  @@index([giveawayId])
+  @@index([fid])
+}
