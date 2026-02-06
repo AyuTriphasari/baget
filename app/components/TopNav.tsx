@@ -48,9 +48,9 @@ export default function TopNav() {
     const title = pageTitle();
 
     return (
-        <header className="sticky top-0 z-40 w-full">
+        <header className="sticky top-0 z-40 w-full bg-[#0B0C10]/80 backdrop-blur-xl border-b border-white/5">
             <div className="max-w-lg mx-auto px-4">
-                <div className="flex items-center justify-between h-16">
+                <div className="flex items-center justify-between h-14">
                     {/* Logo / Brand */}
                     <Link href="/" className="flex items-center gap-2.5 group">
                         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:shadow-blue-500/40 transition-shadow">
